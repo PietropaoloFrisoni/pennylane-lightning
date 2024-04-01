@@ -21,7 +21,7 @@ from setuptools import setup, Extension, find_namespace_packages
 from setuptools.command.build_ext import build_ext
 
 default_backend = "lightning_qubit"
-supported_backends = {"lightning_kokkos", "lightning_qubit", "lightning_gpu"}
+supported_backends = {"lightning_kokkos", "lightning_qubit", "lightning_gpu", "lightning_tensor"}
 supported_backends.update({sb.replace("_", ".") for sb in supported_backends})
 
 
@@ -211,6 +211,7 @@ info = {
     "extras_require": {
         "gpu": ["pennylane-lightning-gpu"],
         "kokkos": ["pennylane-lightning-kokkos"],
+        "tensor": ["pennylane-lightning-tensor"],
     },
 }
 
