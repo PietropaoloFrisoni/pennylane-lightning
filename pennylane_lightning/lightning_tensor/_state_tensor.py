@@ -15,6 +15,9 @@
 Class implementation for state-tensor manipulation.
 """
 
+from typing import Iterable, Union
+import quimb.tensor as qtn
+
 import numpy as np
 import pennylane as qml
 from pennylane import DeviceError
@@ -41,6 +44,10 @@ class LightningStateTensor:
 
         self._device_name = device_name
         # TODO: add binding to Lightning Managed state tensor C++ class.
+        # self._tensor_state = self._state_dtype()(self._num_wires)
+
+        # TODO: change name
+        self._quimb_state = self._create_initial_state(self._wires)
 
     @property
     def dtype(self):
@@ -64,5 +71,36 @@ class LightningStateTensor:
 
     @property
     def state_tensor(self):
-        """Returns a handle to the state vector."""
-        return self._qubit_state
+        """Returns a handle to the state tensor."""
+        return self._tensor_state
+
+    # TODO implement
+    @property
+    def state(self):
+        """Copy the state tensor data to a numpy array."""
+        pass
+
+    # TODO implement
+    def _state_dtype(self):
+        """Binding to Lightning Managed state tensor C++ class.
+
+        Returns: the state tensor class
+        """
+        pass
+
+    def _create_initial_state(self, wires: Union[qml.wires.Wires, Iterable]):
+        r"""
+        Returns an initial state to :math:`\ket{0}`.
+
+        Args:
+            wires (Union[Wires, Iterable]): The wires to be present in the initial state.
+
+        Returns:
+            array: The initial state of a circuit.
+        """
+
+        return qtn.MPS_computational_state(
+            "0" * max(1, len(wires)),
+            dtype=self._dtype.__name__,
+            tags=[str(l) for l in wires.labels],
+        )

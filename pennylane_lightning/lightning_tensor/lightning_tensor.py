@@ -31,7 +31,7 @@ class LightningTensor(Device):
 
     _new_API = True
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         wires,
         *,
@@ -64,3 +64,6 @@ class LightningTensor(Device):
         return self._c_dtype
 
     dtype = c_dtype
+
+    def execute():
+        pass
