@@ -523,6 +523,9 @@ class LightningQubit(Device):
             Bool: Whether or not a derivative can be calculated provided the given information
 
         """
+
+        print("Frisus log: lezzo")
+
         if execution_config is None and circuit is None:
             return True
         if execution_config.gradient_method not in {"adjoint", "best"}:
