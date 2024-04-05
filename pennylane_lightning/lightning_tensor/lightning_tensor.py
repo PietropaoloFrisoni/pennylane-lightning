@@ -33,6 +33,7 @@ class LightningTensor(Device):
 
     _new_API = True
 
+    # TODO: add `max_bond_dim` parameter
     def __init__(
         self,
         *,
@@ -61,9 +62,7 @@ class LightningTensor(Device):
 
         # Should we accept cases in which shots=0, shots=1?
         if shots is not None:
-            raise ValueError(
-                "LightningTensor does not support a finite number of shots."
-            )
+            raise ValueError("LightningTensor does not support the `shots` parameter.")
 
         super().__init__(wires=wires, shots=shots)
 
