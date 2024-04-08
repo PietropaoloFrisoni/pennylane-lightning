@@ -65,11 +65,6 @@ class QuimbMPS:
         """Number of wires addressed on this device."""
         return self._num_wires
 
-    # @property
-    # def state_tensor(self):
-    #    """Returns a handle to the state tensor."""
-    #    return self._tensor_state
-
     # TODO understand better what's happening
     @property
     def state(self):
