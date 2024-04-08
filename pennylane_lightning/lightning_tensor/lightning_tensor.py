@@ -22,7 +22,7 @@ from pennylane.devices import Device
 from pennylane.wires import Wires
 
 
-from ._state_tensor import LightningStateTensor
+from ._mps import QuimbMPS
 
 
 class LightningTensor(Device):
@@ -60,19 +60,23 @@ class LightningTensor(Device):
                 f"The tensor network method has not yet been implemented."
             )
 
-        # Should we accept cases in which shots=0, shots=1?
         if shots is not None:
             raise ValueError("LightningTensor does not support the `shots` parameter.")
 
         super().__init__(wires=wires, shots=shots)
 
+        self._backend = backend
+
+        self._method = method
+
         self._num_wires = len(self.wires) if self.wires else 0
 
         self._c_dtype = c_dtype
 
-        self._statetensor = LightningStateTensor(
-            num_wires=self.num_wires, dtype=self._c_dtype
-        )
+        self._statetensor = None
+
+        if backend == "quimb" and method == "mps":
+            self._statetensor = QuimbMPS(num_wires=self.num_wires, dtype=self._c_dtype)
 
     @property
     def name(self):
@@ -80,8 +84,18 @@ class LightningTensor(Device):
         return "lightning.tensor"
 
     @property
+    def backend(self):
+        """Supported backend."""
+        return self._backend
+
+    @property
+    def method(self):
+        """Supported method."""
+        return self._method
+
+    @property
     def num_wires(self):
-        """Number of wires addressed on this device"""
+        """Number of wires addressed on this device."""
         return self._num_wires
 
     @property
