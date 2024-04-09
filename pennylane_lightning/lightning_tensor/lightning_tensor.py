@@ -46,10 +46,24 @@ class LightningTensor(Device):
     A device to perform fast linear algebra and tensor network calculations.
     """
 
-    _device_options = ("backend", "method", "c_dtype", "max_bond_dim")
+    _device_options = (
+        "backend",
+        "method",
+        "c_dtype",
+        "contraction_optimizer",
+        "local_simplify",
+        "sample_qubits",
+        "max_bond_dim",
+        "cutoff",
+        "measure_algorithm",
+        "apply_reverse_lightcone",
+        "return_tn",
+        "rehearse",
+    )
 
     _new_API = True
 
+    # should `backend` and `method` be keyword args as well?
     def __init__(
         self,
         *,
@@ -58,7 +72,7 @@ class LightningTensor(Device):
         method="mps",
         shots=None,
         c_dtype=np.complex128,
-        max_bond_dim=None,
+        **kwargs,
     ):
 
         if backend not in supported_backends:
@@ -72,21 +86,39 @@ class LightningTensor(Device):
 
         super().__init__(wires=wires, shots=shots)
 
+        self._num_wires = len(self.wires) if self.wires else 0
         self._backend = backend
         self._method = method
         self._c_dtype = c_dtype
-        self._max_bond_dim = max_bond_dim
-        self._num_wires = len(self.wires) if self.wires else 0
+
+        # options for Tensor Network Simulator
+        self._contraction_optimizer = kwargs.get("contraction_optimizer", None)
+        self._local_simplify = kwargs.get("local_simplify", None)
+        self._sample_qubits = kwargs.get("sample_qubits", None)
+        # options for MPS
+        self._max_bond_dim = kwargs.get("max_bond_dim", None)
+        self._cutoff = kwargs.get("cutoff", 1e-16)
+        self._measure_algorithm = kwargs.get("measure_algorithm", None)
+        # common options
+        self._apply_reverse_lightcone = kwargs.get("apply_reverse_lightcone", None)
+        self._return_tn = kwargs.get("return_tn", None)
+        self._rehearse = kwargs.get("rehearse", None)
+
         self._statetensor = None
 
         if backend == "quimb" and method == "mps":
-            # TODO: pass the `max_bond_dim` to quimb
+            # TODO: pass the options for MPS to the class
             self._statetensor = QuimbMPS(num_wires=self.num_wires, dtype=self._c_dtype)
 
     @property
     def name(self):
         """The name of the device."""
         return "lightning.tensor"
+
+    @property
+    def num_wires(self):
+        """Number of wires addressed on this device."""
+        return self._num_wires
 
     @property
     def backend(self):
@@ -103,19 +135,8 @@ class LightningTensor(Device):
         """State vector complex data type."""
         return self._c_dtype
 
-    @property
-    def max_bond_dim(self):
-        """Maximum bond dimension on this device."""
-        return self._max_bond_dim
-
-    @property
-    def num_wires(self):
-        """Number of wires addressed on this device."""
-        return self._num_wires
-
     dtype = c_dtype
 
-    # should `backend` and `method` be inserted here?
     def _setup_execution_config(self, config):
         """
         Update the execution config with choices for how the device should be used and the device options.
@@ -139,24 +160,10 @@ class LightningTensor(Device):
         return replace(config, **updated_values, device_options=new_device_options)
 
     def preprocess(self, execution_config: ExecutionConfig = DefaultExecutionConfig):
-        """This function defines the device transform program to be applied and an updated device configuration.
-
-        Args:
-            execution_config (Union[ExecutionConfig, Sequence[ExecutionConfig]]): A data structure describing the
-                parameters needed to fully describe the execution.
-
-        Returns:
-            TransformProgram, ExecutionConfig: A transform program that when called returns :class:`~.QuantumTape`'s that the
-            device can natively execute as well as a postprocessing function to be called after execution, and a configuration
-            with unset specifications filled in.
-
-        This device:
-
-        * Supports any qubit operations that provide a matrix
-        * Currently does not support finite shots
-        * Currently does not intrinsically support parameter broadcasting
-
         """
+        ...
+        """
+
         config = self._setup_execution_config(execution_config)
 
         return config
