@@ -37,6 +37,8 @@ PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 # TODO: add all docs to class and functions
 
+# TODO: question: how do we expose methods for qml.expval?
+
 
 _backends = frozenset({"quimb", "cutensornet"})
 # The set of supported backends.
@@ -140,8 +142,9 @@ class LightningTensor(Device):
         self._state = None
 
         if self.backend == "quimb" and self.method == "mps":
-            # TODO: pass the options for MPS to the class
-            self._state = QuimbMPS(num_wires=self.num_wires, dtype=self._c_dtype)
+            self._state = QuimbMPS(
+                num_wires=self.num_wires, dtype=self._c_dtype, **kwargs
+            )
 
     @property
     def name(self):
