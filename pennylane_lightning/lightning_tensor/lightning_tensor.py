@@ -46,19 +46,19 @@ class LightningTensor(Device):
     A device to perform fast linear algebra and tensor network calculations.
     """
 
-    _device_options = ("backend", "c_dtype", "method", "max_bond_dim")
+    _device_options = ("backend", "method", "c_dtype", "max_bond_dim")
 
     _new_API = True
 
-    # TODO: add `max_bond_dim` parameter
     def __init__(
         self,
         *,
         wires=None,
         backend="quimb",
         method="mps",
-        c_dtype=np.complex128,
         shots=None,
+        c_dtype=np.complex128,
+        max_bond_dim=None,
     ):
 
         if backend not in supported_backends:
@@ -75,10 +75,12 @@ class LightningTensor(Device):
         self._backend = backend
         self._method = method
         self._c_dtype = c_dtype
+        self._max_bond_dim = max_bond_dim
         self._num_wires = len(self.wires) if self.wires else 0
         self._statetensor = None
 
         if backend == "quimb" and method == "mps":
+            # TODO: pass the `max_bond_dim` to quimb
             self._statetensor = QuimbMPS(num_wires=self.num_wires, dtype=self._c_dtype)
 
     @property
@@ -102,6 +104,11 @@ class LightningTensor(Device):
         return self._c_dtype
 
     @property
+    def max_bond_dim(self):
+        """Maximum bond dimension on this device."""
+        return self._max_bond_dim
+
+    @property
     def num_wires(self):
         """Number of wires addressed on this device."""
         return self._num_wires
@@ -110,10 +117,49 @@ class LightningTensor(Device):
 
     # should `backend` and `method` be inserted here?
     def _setup_execution_config(self, config):
-        pass
+        """
+        Update the execution config with choices for how the device should be used and the device options.
+        """
+        updated_values = {}
+        if config.gradient_method == "best":
+            updated_values["gradient_method"] = "adjoint"
+        if config.use_device_gradient is None:
+            updated_values["use_device_gradient"] = config.gradient_method in (
+                "best",
+                "adjoint",
+            )
+        if config.grad_on_execution is None:
+            updated_values["grad_on_execution"] = True
+
+        new_device_options = dict(config.device_options)
+        for option in self._device_options:
+            if option not in new_device_options:
+                new_device_options[option] = getattr(self, f"_{option}", None)
+
+        return replace(config, **updated_values, device_options=new_device_options)
 
     def preprocess(self, execution_config: ExecutionConfig = DefaultExecutionConfig):
-        pass
+        """This function defines the device transform program to be applied and an updated device configuration.
+
+        Args:
+            execution_config (Union[ExecutionConfig, Sequence[ExecutionConfig]]): A data structure describing the
+                parameters needed to fully describe the execution.
+
+        Returns:
+            TransformProgram, ExecutionConfig: A transform program that when called returns :class:`~.QuantumTape`'s that the
+            device can natively execute as well as a postprocessing function to be called after execution, and a configuration
+            with unset specifications filled in.
+
+        This device:
+
+        * Supports any qubit operations that provide a matrix
+        * Currently does not support finite shots
+        * Currently does not intrinsically support parameter broadcasting
+
+        """
+        config = self._setup_execution_config(execution_config)
+
+        return config
 
     def execute(
         self,
