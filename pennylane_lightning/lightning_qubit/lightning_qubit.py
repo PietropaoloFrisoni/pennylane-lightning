@@ -58,7 +58,9 @@ QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 
-def simulate(circuit: QuantumScript, state: LightningStateVector, mcmc: dict = None) -> Result:
+def simulate(
+    circuit: QuantumScript, state: LightningStateVector, mcmc: dict = None
+) -> Result:
     """Simulate a single quantum script.
 
     Args:
@@ -106,10 +108,14 @@ def jacobian(circuit: QuantumTape, state: LightningStateVector, batch_obs=False)
     circuit = circuit.map_to_standard_wires()
     state.reset_state()
     final_state = state.get_final_state(circuit)
-    return LightningAdjointJacobian(final_state, batch_obs=batch_obs).calculate_jacobian(circuit)
+    return LightningAdjointJacobian(
+        final_state, batch_obs=batch_obs
+    ).calculate_jacobian(circuit)
 
 
-def simulate_and_jacobian(circuit: QuantumTape, state: LightningStateVector, batch_obs=False):
+def simulate_and_jacobian(
+    circuit: QuantumTape, state: LightningStateVector, batch_obs=False
+):
     """Simulate a single quantum script and compute its Jacobian.
 
     Args:
@@ -126,12 +132,17 @@ def simulate_and_jacobian(circuit: QuantumTape, state: LightningStateVector, bat
     """
     circuit = circuit.map_to_standard_wires()
     res = simulate(circuit, state)
-    jac = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_jacobian(circuit)
+    jac = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_jacobian(
+        circuit
+    )
     return res, jac
 
 
 def vjp(
-    circuit: QuantumTape, cotangents: Tuple[Number], state: LightningStateVector, batch_obs=False
+    circuit: QuantumTape,
+    cotangents: Tuple[Number],
+    state: LightningStateVector,
+    batch_obs=False,
 ):
     """Compute the Vector-Jacobian Product (VJP) for a single quantum script.
     Args:
@@ -156,7 +167,10 @@ def vjp(
 
 
 def simulate_and_vjp(
-    circuit: QuantumTape, cotangents: Tuple[Number], state: LightningStateVector, batch_obs=False
+    circuit: QuantumTape,
+    cotangents: Tuple[Number],
+    state: LightningStateVector,
+    batch_obs=False,
 ):
     """Simulate a single quantum script and compute its Vector-Jacobian Product (VJP).
     Args:
@@ -175,7 +189,9 @@ def simulate_and_vjp(
     """
     circuit = circuit.map_to_standard_wires()
     res = simulate(circuit, state)
-    _vjp = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_vjp(circuit, cotangents)
+    _vjp = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_vjp(
+        circuit, cotangents
+    )
     return res, _vjp
 
 
@@ -356,7 +372,10 @@ def _add_adjoint_transforms(program: TransformProgram) -> None:
     name = "adjoint + lightning.qubit"
     program.add_transform(no_sampling, name=name)
     program.add_transform(
-        decompose, stopping_condition=adjoint_ops, name=name, skip_initial_state_prep=False
+        decompose,
+        stopping_condition=adjoint_ops,
+        name=name,
+        skip_initial_state_prep=False,
     )
     program.add_transform(validate_observables, accepted_observables, name=name)
     program.add_transform(
@@ -404,7 +423,14 @@ class LightningQubit(Device):
             qubit is built with OpenMP.
     """
 
-    _device_options = ("rng", "c_dtype", "batch_obs", "mcmc", "kernel_name", "num_burnin")
+    _device_options = (
+        "rng",
+        "c_dtype",
+        "batch_obs",
+        "mcmc",
+        "kernel_name",
+        "num_burnin",
+    )
     _CPP_BINARY_AVAILABLE = LQ_CPP_BINARY_AVAILABLE
     _new_API = True
     _backend_info = backend_info if LQ_CPP_BINARY_AVAILABLE else None
@@ -438,7 +464,9 @@ class LightningQubit(Device):
 
         super().__init__(wires=wires, shots=shots)
 
-        self._statevector = LightningStateVector(num_wires=len(self.wires), dtype=c_dtype)
+        self._statevector = LightningStateVector(
+            num_wires=len(self.wires), dtype=c_dtype
+        )
 
         # TODO: Investigate usefulness of creating numpy random generator
         seed = np.random.randint(0, high=10000000) if seed == "global" else seed
@@ -485,7 +513,10 @@ class LightningQubit(Device):
         if config.gradient_method == "best":
             updated_values["gradient_method"] = "adjoint"
         if config.use_device_gradient is None:
-            updated_values["use_device_gradient"] = config.gradient_method in ("best", "adjoint")
+            updated_values["use_device_gradient"] = config.gradient_method in (
+                "best",
+                "adjoint",
+            )
         if config.grad_on_execution is None:
             updated_values["grad_on_execution"] = True
 
@@ -515,14 +546,23 @@ class LightningQubit(Device):
         * Currently does not intrinsically support parameter broadcasting
 
         """
+
+        print(
+            f"Frisus log: preprocess called with:\nexecution_config={execution_config}\n"
+        )
+
         config = self._setup_execution_config(execution_config)
         program = TransformProgram()
 
         program.add_transform(validate_measurements, name=self.name)
-        program.add_transform(validate_observables, accepted_observables, name=self.name)
+        program.add_transform(
+            validate_observables, accepted_observables, name=self.name
+        )
         program.add_transform(validate_device_wires, self.wires, name=self.name)
         program.add_transform(mid_circuit_measurements, device=self)
-        program.add_transform(decompose, stopping_condition=stopping_condition, name=self.name)
+        program.add_transform(
+            decompose, stopping_condition=stopping_condition, name=self.name
+        )
         program.add_transform(qml.transforms.broadcast_expand)
 
         if config.gradient_method == "adjoint":
@@ -544,6 +584,11 @@ class LightningQubit(Device):
         Returns:
             TensorLike, tuple[TensorLike], tuple[tuple[TensorLike]]: A numeric result of the computation.
         """
+
+        print(
+            f"Frisus log: execute called with:\nexecution_config={execution_config}\ncircuits={circuits}\n"
+        )
+
         mcmc = {
             "mcmc": self._mcmc,
             "kernel_name": self._kernel_name,
@@ -574,7 +619,9 @@ class LightningQubit(Device):
 
         """
 
-        print("Frisus log: lezzo")
+        print(
+            f"Frisus log: supports_derivatives called with:\nexecution_config={execution_config}\ncircuit={circuit}\n"
+        )
 
         if execution_config is None and circuit is None:
             return True
@@ -598,9 +645,15 @@ class LightningQubit(Device):
         Returns:
             Tuple: The jacobian for each trainable parameter
         """
+
+        print(
+            f"Frisus log: compute_derivatives called with:\nexecution_config={execution_config}\ncircuits={circuits}"
+        )
+
         batch_obs = execution_config.device_options.get("batch_obs", self._batch_obs)
         return tuple(
-            jacobian(circuit, self._statevector, batch_obs=batch_obs) for circuit in circuits
+            jacobian(circuit, self._statevector, batch_obs=batch_obs)
+            for circuit in circuits
         )
 
     def execute_and_compute_derivatives(
@@ -617,9 +670,15 @@ class LightningQubit(Device):
         Returns:
             tuple: A numeric result of the computation and the gradient.
         """
+
+        print(
+            f"Frisus log: execute_and_compute_derivatives called with:\nexecution_config={execution_config}\ncircuits={circuits}\n"
+        )
+
         batch_obs = execution_config.device_options.get("batch_obs", self._batch_obs)
         results = tuple(
-            simulate_and_jacobian(c, self._statevector, batch_obs=batch_obs) for c in circuits
+            simulate_and_jacobian(c, self._statevector, batch_obs=batch_obs)
+            for c in circuits
         )
         return tuple(zip(*results))
 
@@ -670,6 +729,11 @@ class LightningQubit(Device):
         * For ``n`` expectation values, the cotangents must have shape ``(n, batch_size)``. If ``n = 1``,
           then the shape must be ``(batch_size,)``.
         """
+
+        print(
+            f"Frisus log: compute_vjp called with:\nexecution_config={execution_config}\ncotangents={cotangents}\ncircuits={circuits}\n"
+        )
+
         batch_obs = execution_config.device_options.get("batch_obs", self._batch_obs)
         return tuple(
             vjp(circuit, cots, self._statevector, batch_obs=batch_obs)
@@ -692,6 +756,11 @@ class LightningQubit(Device):
         Returns:
             Tuple, Tuple: the result of executing the scripts and the numeric result of computing the vector jacobian product
         """
+
+        print(
+            f"Frisus log: execute_and_compute_vjp called with:\nexecution_config={execution_config}\ncotangents={cotangents}\ncircuits={circuits}\n"
+        )
+
         batch_obs = execution_config.device_options.get("batch_obs", self._batch_obs)
         results = tuple(
             simulate_and_vjp(circuit, cots, self._statevector, batch_obs=batch_obs)
