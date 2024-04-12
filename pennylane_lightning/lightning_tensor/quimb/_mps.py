@@ -61,7 +61,6 @@ class QuimbMPS:
         self._cutoff = kwargs.get("cutoff", 1e-16)
         self._measure_algorithm = kwargs.get("measure_algorithm", None)
 
-
         # TODO: allows users to specify initial state
         self._circuit = qtn.CircuitMPS(psi0=self._set_initial_mps())
 
