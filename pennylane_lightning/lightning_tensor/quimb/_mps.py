@@ -15,9 +15,26 @@
 Class implementation for MPS manipulation based on the `quimb` Python package.
 """
 
-import numpy as np
+
 import quimb.tensor as qtn
 from pennylane.wires import Wires
+
+from typing import Callable, Sequence, Union
+
+import pennylane as qml
+from pennylane import numpy as np
+from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
+from pennylane.tape import QuantumTape
+from pennylane.typing import Result, ResultBatch
+
+from pennylane.measurements import (
+    MeasurementProcess,
+)
+
+Result_or_ResultBatch = Union[Result, ResultBatch]
+QuantumTapeBatch = Sequence[QuantumTape]
+QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
+PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 # TODO: understand if supporting all operations and observables is feasible for the first release
 # I comment the following lines since otherwise Codecov complaints
@@ -69,3 +86,85 @@ class QuimbMPS:
             dtype=self._dtype.__name__,
             tags=[str(l) for l in self._wires.labels],
         )
+
+    def execute(
+        self,
+        circuits: QuantumTape_or_Batch,
+        execution_config: ExecutionConfig = DefaultExecutionConfig,
+    ) -> Result_or_ResultBatch:
+        """
+        ...
+        """
+
+        print(
+            f"LIGHTNING TENSOR execute called with:\nexecution_config={execution_config}\ncircuits={circuits}\n"
+        )
+
+        results = []
+        for circuit in circuits:
+            circuit = circuit.map_to_standard_wires()
+            results.append(self.simulate(circuit))
+
+        print(results)
+
+        return tuple(results)
+
+    def simulate(self, tape: qml.tape.QuantumScript) -> Result:
+        """Simulate a single quantum script.
+
+        Args:
+            tape (QuantumScript): The single circuit to simulate
+
+        Returns:
+            tuple(TensorLike): The results of the simulation
+
+        # TODO: understand
+        Note that this function can return measurements for non-commuting observables simultaneously.
+
+        # TODO: understand
+        It does currently not support sampling or observables without diagonalizing gates.
+
+        This function assumes that all operations provide matrices.
+        """
+
+        if set(tape.wires) != set(range(tape.num_wires)):
+            print("La condizione si e' verificata")
+            wire_map = {w: i for i, w in enumerate(tape.wires)}
+            tape = qml.map_wires(tape, wire_map)
+
+        for op in tape.operations:
+
+            print(self._circuit.to_dense())
+
+            print(f"Applying {op}")
+
+            self._circuit.apply_gate(
+                op.matrix(), *op.wires, contract=False, parametrize=None
+            )
+
+            print(self._circuit.to_dense())
+
+        def measure(measurementprocess: MeasurementProcess):
+            """Apply a measurement to state when the measurement process has an observable with diagonalizing gates.
+
+            Args:
+                measurementprocess (StateMeasurement): measurement to apply to the state
+                state (TensorLike): state to apply the measurement to
+
+            Returns:
+                TensorLike: the result of the measurement
+            """
+            fs_opts = {
+                "simplify_sequence": "ADCRS",
+                "simplify_atol": 0.0,
+            }
+
+            obs = measurementprocess.obs
+
+            return np.real(
+                self._circuit.local_expectation(
+                    obs.matrix(), tuple(obs.wires), **fs_opts
+                )
+            )
+
+        return tuple(measure(mp) for mp in tape.measurements)

@@ -182,7 +182,6 @@ class LightningTensor(Device):
 
     def preprocess(
         self,
-        circuits: QuantumTape_or_Batch,  # pylint: disable=unused-argument
         execution_config: ExecutionConfig = DefaultExecutionConfig,
     ):
         """This function defines the device transform program to be applied and an updated device configuration.
@@ -213,7 +212,8 @@ class LightningTensor(Device):
         Returns:
             TensorLike, tuple[TensorLike], tuple[tuple[TensorLike]]: A numeric result of the computation.
         """
-        # TODO: call the function implemented in the appropriate interface
+        
+        self._interface.execute(circuits, execution_config)
 
     def supports_derivatives(
         self,
