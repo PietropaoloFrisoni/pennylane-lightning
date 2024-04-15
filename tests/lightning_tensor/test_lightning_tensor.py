@@ -24,26 +24,23 @@ from pennylane.wires import Wires
 
 from pennylane_lightning.lightning_tensor import LightningTensor
 
-# if LightningDevice._CPP_BINARY_AVAILABLE:
-#    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
+if LightningDevice._CPP_BINARY_AVAILABLE:
+    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
 
 
 @pytest.mark.parametrize("num_wires", [None, 4])
 @pytest.mark.parametrize("c_dtype", [np.complex64, np.complex128])
-@pytest.mark.parametrize("device_name", ["lightning.tensor"])
-def test_device_name_and_init(num_wires, c_dtype, device_name):
+def test_device_name_and_init(num_wires, c_dtype):
     """Test the class initialization and returned properties."""
     wires = Wires(range(num_wires)) if num_wires else None
     dev = LightningTensor(wires=wires, c_dtype=c_dtype)
-    assert dev.name == device_name
+    assert dev.name == "lightning.tensor"
     assert dev.c_dtype == c_dtype
     assert dev.wires == wires
-
-
-def test_wrong_device_name():
-    """Test an invalid device name"""
-    with pytest.raises(qml.DeviceError, match="The device name"):
-        LightningTensor(device_name="thunder.tensor")
+    if num_wires is None:
+        assert dev.num_wires == 0
+    else:
+        assert dev.num_wires == num_wires
 
 
 @pytest.mark.parametrize("backend", ["fake_backend"])
@@ -62,7 +59,5 @@ def test_invalid_method(method):
 
 def test_invalid_shots():
     """Test that an error is raised if finite number of shots are requestd."""
-    with pytest.raises(
-        ValueError, match="LightningTensor does not support the `shots` parameter."
-    ):
+    with pytest.raises(ValueError, match="LightningTensor does not support the `shots` parameter."):
         LightningTensor(shots=5)

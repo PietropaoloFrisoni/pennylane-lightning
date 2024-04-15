@@ -17,9 +17,7 @@ Class implementation for MPS manipulation based on the `quimb` Python package.
 
 import numpy as np
 import quimb.tensor as qtn
-from pennylane import DeviceError
 from pennylane.wires import Wires
-
 
 # TODO: understand if supporting all operations and observables is feasible for the first release
 # I comment the following lines since otherwise Codecov complaints
@@ -37,29 +35,14 @@ class QuimbMPS:
     Interfaces with `quimb` for MPS manipulation.
     """
 
-    def __init__(
-        self,
-        num_wires,
-        dtype=np.complex128,
-        device_name="lightning.tensor",
-        **kwargs,
-    ):
+    def __init__(self, num_wires, dtype=np.complex128):
 
         if dtype not in [np.complex64, np.complex128]:  # pragma: no cover
             raise TypeError(f"Unsupported complex type: {dtype}")
 
-        if device_name != "lightning.tensor":
-            raise DeviceError(f'The device name "{device_name}" is not a valid option.')
-
-        self._device_name = device_name
         self._num_wires = num_wires
         self._wires = Wires(range(num_wires))
         self._dtype = dtype
-
-        # options for MPS
-        self._max_bond_dim = kwargs.get("max_bond_dim", None)
-        self._cutoff = kwargs.get("cutoff", 1e-16)
-        self._measure_algorithm = kwargs.get("measure_algorithm", None)
 
         # TODO: allows users to specify initial state
         self._circuit = qtn.CircuitMPS(psi0=self._set_initial_mps())
@@ -76,9 +59,6 @@ class QuimbMPS:
     def _set_initial_mps(self):
         r"""
         Returns an initial state to :math:`\ket{0}`.
-
-        Args:
-            wires (Union[Wires, Iterable]): The wires to be present in the initial state.
 
         Returns:
             array: The initial state of a circuit.
