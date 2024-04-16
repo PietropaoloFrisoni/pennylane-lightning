@@ -119,20 +119,20 @@ class QuimbMPS:
         results = tuple(results)
 
         if self._verbosity:
-            print(f"LOG: execute results={results}\n")
+            print(f"\nLOG: execute results={results}\n")
+            print(f"LOG: MPS after execution:\n{self._circuitMPS.psi}")
 
         return results
 
     def _simulate(self, circuit: QuantumScript) -> Result:
-        """Simulate a single quantum script.
+        """Simulate a single quantum script. This function assumes that all operations provide matrices.
 
         Args:
-            circuit (QuantumScript): The single circuit to simulate
+            circuit (QuantumScript): The single circuit to simulate.
 
         Returns:
-            Tuple[TensorLike]: The results of the simulation
+            Tuple[TensorLike]: The results of the simulation.
 
-        This function assumes that all operations provide matrices.
         """
 
         self._reset_state()
@@ -148,15 +148,13 @@ class QuimbMPS:
         ### PART 2: Measurements
         ##############################################################
 
-        # assume that circuit.shots.total_shots is `None`
-
         if len(circuit.measurements) == 1:
             return self._measure(circuit.measurements[0])
 
         return tuple(self._measure(mp) for mp in circuit.measurements)
 
     def _measure(self, measurementprocess: MeasurementProcess):
-        """Apply a measurement to state when the measurement process has an observable with diagonalizing gates.
+        """Measure the expectation value over the MPS.
 
         Args:
             measurementprocess (MeasurementProcess): measurement to apply to the state.
@@ -166,6 +164,9 @@ class QuimbMPS:
         """
 
         obs = measurementprocess.obs
+
+        if self._verbosity:
+            print(f"\nLOG: measuring the expval of obs {obs}...")
 
         return np.real(
             self._circuitMPS.local_expectation(
@@ -177,8 +178,6 @@ class QuimbMPS:
             )
         )
 
-    # return tuple(measure(mp) for mp in tape.measurements)
-
     def _apply_operation(self, op: qml.operation.Operator):
         """Apply a single operator to the circuit, keeping the state always in a MPS form.
 
@@ -187,7 +186,7 @@ class QuimbMPS:
         """
 
         if self._verbosity:
-            print(f"LOG: applying {op} to the circuit.")
+            print(f"\nLOG: applying {op} to the circuit...")
 
         # TODO: investigate in `quimb` how to pass parameters required by PRD (cutoff, max_bond, etc.)
         self._circuitMPS.apply_gate(
