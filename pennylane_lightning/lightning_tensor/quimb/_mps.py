@@ -60,7 +60,8 @@ class QuimbMPS:
         self._num_wires = num_wires
         self._wires = Wires(range(num_wires))
         self._dtype = dtype
-        self._circuitMPS = qtn.CircuitMPS(psi0=self._set_initial_mps())
+        self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
+        self._verbosity = True
 
     @property
     def state(self):
@@ -68,20 +69,21 @@ class QuimbMPS:
         return self._circuitMPS.psi
 
     def _reset_state(self):
-        """Reset the MPS"""
-        print("FRISUS LOG: resetting the state")
-        self._circuitMPS = qtn.CircuitMPS(psi0=self._set_initial_mps())
+        """Reset the MPS."""
+        if self._verbosity:
+            print("LOG: resetting the MPS")
+        self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
     def state_to_array(self, digits: int = 5):
         """Contract the MPS into a dense array."""
         return self._circuitMPS.to_dense().round(digits)
 
-    def _set_initial_mps(self):
+    def _initial_mps(self):
         r"""
         Returns an initial state to :math:`\ket{0}`.
 
         Returns:
-            array: The initial state of a circuit.
+            array: The initial MPS of a circuit.
         """
 
         return qtn.MPS_computational_state(
@@ -90,6 +92,7 @@ class QuimbMPS:
             tags=[str(l) for l in self._wires.labels],
         )
 
+    # pylint: disable=unused-argument
     def execute(
         self,
         circuits: QuantumTape_or_Batch,
@@ -105,11 +108,8 @@ class QuimbMPS:
             TensorLike, tuple[TensorLike], tuple[tuple[TensorLike]]: A numeric result of the computation.
         """
 
-        print(
-            f"LIGHTNING TENSOR MPS Interface execute called with:\nexecution_config={execution_config}\n\ncircuits={circuits}\n"
-        )
-
-        self._reset_state()
+        if self._verbosity:
+            print(f"LOG: execute called with:\ncircuits={circuits}\n")
 
         results = []
         for circuit in circuits:
@@ -118,7 +118,8 @@ class QuimbMPS:
 
         results = tuple(results)
 
-        print(f"LIGHTNING TENSOR MPS Interface execute results={results}\n")
+        if self._verbosity:
+            print(f"LOG: execute results={results}\n")
 
         return results
 
@@ -134,6 +135,8 @@ class QuimbMPS:
         This function assumes that all operations provide matrices.
         """
 
+        self._reset_state()
+
         ##############################################################
         ### PART 1: Applying operations
         ##############################################################
@@ -145,15 +148,21 @@ class QuimbMPS:
         ### PART 2: Measurements
         ##############################################################
 
+        # assume that circuit.shots.total_shots is `None`
+
+        if len(circuit.measurements) == 1:
+            return self._measure(circuit.measurements[0])
+
+        return tuple(self._measure(mp) for mp in circuit.measurements)
+
     def _measure(self, measurementprocess: MeasurementProcess):
         """Apply a measurement to state when the measurement process has an observable with diagonalizing gates.
 
         Args:
-            measurementprocess (StateMeasurement): measurement to apply to the state
-            state (TensorLike): state to apply the measurement to
+            measurementprocess (MeasurementProcess): measurement to apply to the state.
 
         Returns:
-            TensorLike: the result of the measurement
+            TensorLike: the result of the measurement.
         """
 
         obs = measurementprocess.obs
@@ -171,18 +180,19 @@ class QuimbMPS:
     # return tuple(measure(mp) for mp in tape.measurements)
 
     def _apply_operation(self, op: qml.operation.Operator):
-        """Apply a single operator to the MPS.
+        """Apply a single operator to the circuit, keeping the state always in a MPS form.
 
         Args:
             op (Operator): The operation to apply.
         """
 
-        print(f"\nLOG: applying {op} to the MPS")
+        if self._verbosity:
+            print(f"LOG: applying {op} to the circuit.")
 
         # TODO: investigate in `quimb` how to pass parameters required by PRD (cutoff, max_bond, etc.)
         self._circuitMPS.apply_gate(
             op.matrix(), *op.wires, contract="swap+split", parametrize=None
         )
 
-        print(f"LOG: MPS after operation:")
-        print(self._circuitMPS.psi)
+        if self._verbosity:
+            print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")

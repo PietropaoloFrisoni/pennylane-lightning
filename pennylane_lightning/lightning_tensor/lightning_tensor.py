@@ -191,10 +191,12 @@ class LightningTensor(Device):
                 parameters needed to fully describe the execution.
 
         Returns:
-            # TODO: decide
+            # TODO: complete description.
         """
 
         config = self._setup_execution_config(execution_config)
+
+        # TODO: add check on accepted operations and observables
 
         return config
 
