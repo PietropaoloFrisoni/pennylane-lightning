@@ -25,11 +25,9 @@ import pennylane as qml
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
 from pennylane.tape import QuantumTape, QuantumScript
-from pennylane.typing import Result, ResultBatch
+from pennylane.typing import Result, ResultBatch, TensorLike
 
-from pennylane.measurements import (
-    MeasurementProcess,
-)
+from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
@@ -37,7 +35,6 @@ QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 # TODO: understand if supporting all operations and observables is feasible for the first release
-# I comment the following lines since otherwise Codecov complaints
 
 _operations = frozenset({})
 # The set of supported operations.
@@ -47,12 +44,12 @@ _observables = frozenset({})
 
 
 def stopping_condition(op: qml.operation.Operator) -> bool:
-    """A function that determines whether or not an operation is supported by ``lightning.tensor`` for this interface."""
+    """A function that determines if an operation is supported by ``lightning.tensor`` for this interface."""
     return op.name in _operations
 
 
 def accepted_observables(obs: qml.operation.Operator) -> bool:
-    """A function that determines whether or not an observable is supported by ``lightning.tensor`` for this interface."""
+    """A function that determines if an observable is supported by ``lightning.tensor`` for this interface."""
     return obs.name in _observables
 
 
@@ -158,35 +155,13 @@ class QuimbMPS:
         ### PART 2: Measurements
         ##############################################################
 
-        if len(circuit.measurements) == 1:
-            return self._measure(circuit.measurements[0])
+        if not circuit.shots:
+            if len(circuit.measurements) == 1:
+                return self._measurement(circuit.measurements[0])
 
-        return tuple(self._measure(mp) for mp in circuit.measurements)
+            return tuple(self._measurement(mp) for mp in circuit.measurements)
 
-    def _measure(self, measurementprocess: MeasurementProcess):
-        """Measure the expectation value over the MPS.
-
-        Args:
-            measurementprocess (MeasurementProcess): measurement to apply to the state.
-
-        Returns:
-            TensorLike: the result of the measurement.
-        """
-
-        obs = measurementprocess.obs
-
-        if self._verbosity:
-            print(f"\nLOG: measuring the expval of obs {obs}...")
-
-        return np.real(
-            self._circuitMPS.local_expectation(
-                G=obs.matrix(),
-                where=tuple(obs.wires),
-                dtype=self._dtype.__name__,
-                simplify_sequence="ADCRS",
-                simplify_atol=0.0,
-            )
-        )
+        raise NotImplementedError
 
     def _apply_operation(self, op: qml.operation.Operator):
         """Apply a single operator to the circuit, keeping the state always in a MPS form.
@@ -205,3 +180,57 @@ class QuimbMPS:
 
         if self._verbosity:
             print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
+
+    def _measurement(self, measurementprocess: MeasurementProcess):
+        """Measure the measurement required by the circuit over the MPS.
+
+        Args:
+            measurementprocess (MeasurementProcess): measurement to apply to the state.
+
+        Returns:
+            TensorLike: the result of the measurement.
+        """
+
+        return self._get_measurement_function(measurementprocess)(measurementprocess)
+
+    def _get_measurement_function(
+        self, measurementprocess: MeasurementProcess
+    ) -> Callable[[MeasurementProcess, TensorLike], TensorLike]:
+        """Get the appropriate method for performing a measurement.
+
+        Args:
+            measurementprocess (MeasurementProcess): measurement process to apply to the state
+
+        Returns:
+            Callable: function that returns the measurement result
+        """
+        if isinstance(measurementprocess, StateMeasurement):
+            if isinstance(measurementprocess, ExpectationMP):
+                return self._expval
+
+        raise NotImplementedError
+
+    def _expval(self, measurementprocess: MeasurementProcess):
+        """Expectation value of the supplied observable contained in the MeasurementProcess.
+
+        Args:
+            measurementprocess (StateMeasurement): measurement to apply to the MPS.
+
+        Returns:
+            Expectation value of the observable.
+        """
+
+        obs = measurementprocess.obs
+
+        if self._verbosity:
+            print(f"\nLOG: measuring the expval of obs {obs}...")
+
+        return np.real(
+            self._circuitMPS.local_expectation(
+                G=obs.matrix(),
+                where=tuple(obs.wires),
+                dtype=self._dtype.__name__,
+                simplify_sequence="ADCRS",
+                simplify_atol=0.0,
+            )
+        )
