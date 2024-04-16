@@ -22,10 +22,16 @@ import numpy as np
 import pennylane as qml
 from pennylane.devices import DefaultExecutionConfig, Device, ExecutionConfig
 from pennylane.devices.modifiers import simulator_tracking, single_tape_support
+from pennylane.devices.preprocess import (
+    validate_device_wires,
+    validate_measurements,
+    validate_observables,
+)
 from pennylane.tape import QuantumTape
+from pennylane.transforms.core import TransformProgram
 from pennylane.typing import Result, ResultBatch
 
-from .quimb._mps import QuimbMPS
+from .quimb._mps import QuimbMPS, stopping_condition, accepted_observables
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
@@ -191,14 +197,28 @@ class LightningTensor(Device):
                 parameters needed to fully describe the execution.
 
         Returns:
-            # TODO: complete description.
+            TransformProgram, ExecutionConfig: A transform program that when called returns :class:`~.QuantumTape`'s that the
+            device can natively execute as well as a postprocessing function to be called after execution, and a configuration
+            with unset specifications filled in.
+
+        This device:
+
+        * Supports any qubit operations that provide a matrix.
+        * Currently does not support finite shots.
+
         """
 
         config = self._setup_execution_config(execution_config)
 
-        # TODO: add check on accepted operations and observables
+        program = TransformProgram()
 
-        return config
+        program.add_transform(validate_measurements, name=self.name)
+        program.add_transform(
+            validate_observables, accepted_observables, name=self.name
+        )
+        program.add_transform(validate_device_wires, self.wires, name=self.name)
+
+        return program, config
 
     def execute(
         self,

@@ -39,11 +39,21 @@ PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 # TODO: understand if supporting all operations and observables is feasible for the first release
 # I comment the following lines since otherwise Codecov complaints
 
-# _operations = frozenset({})
+_operations = frozenset({})
 # The set of supported operations.
 
-# _observables = frozenset({})
+_observables = frozenset({})
 # The set of supported observables.
+
+
+def stopping_condition(op: qml.operation.Operator) -> bool:
+    """A function that determines whether or not an operation is supported by ``lightning.tensor`` for this interface."""
+    return op.name in _operations
+
+
+def accepted_observables(obs: qml.operation.Operator) -> bool:
+    """A function that determines whether or not an observable is supported by ``lightning.tensor`` for this interface."""
+    return obs.name in _observables
 
 
 class QuimbMPS:
