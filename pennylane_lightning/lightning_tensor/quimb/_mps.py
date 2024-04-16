@@ -24,7 +24,7 @@ from typing import Callable, Sequence, Union
 import pennylane as qml
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.tape import QuantumTape
+from pennylane.tape import QuantumTape, QuantumScript
 from pennylane.typing import Result, ResultBatch
 
 from pennylane.measurements import (
@@ -60,18 +60,21 @@ class QuimbMPS:
         self._num_wires = num_wires
         self._wires = Wires(range(num_wires))
         self._dtype = dtype
-
-        # TODO: allows users to specify initial state
-        self._circuit = qtn.CircuitMPS(psi0=self._set_initial_mps())
+        self._circuitMPS = qtn.CircuitMPS(psi0=self._set_initial_mps())
 
     @property
     def state(self):
-        """Current MPS handled by the device."""
-        return self._circuit.psi
+        """Current MPS handled by the interface."""
+        return self._circuitMPS.psi
+
+    def _reset_state(self):
+        """Reset the MPS"""
+        print("FRISUS LOG: resetting the state")
+        self._circuitMPS = qtn.CircuitMPS(psi0=self._set_initial_mps())
 
     def state_to_array(self, digits: int = 5):
         """Contract the MPS into a dense array."""
-        return self._circuit.to_dense().round(digits)
+        return self._circuitMPS.to_dense().round(digits)
 
     def _set_initial_mps(self):
         r"""
@@ -92,79 +95,94 @@ class QuimbMPS:
         circuits: QuantumTape_or_Batch,
         execution_config: ExecutionConfig = DefaultExecutionConfig,
     ) -> Result_or_ResultBatch:
-        """
-        ...
+        """Execute a circuit or a batch of circuits and turn it into results.
+
+        Args:
+            circuits (Union[QuantumTape, Sequence[QuantumTape]]): the quantum circuits to be executed
+            execution_config (ExecutionConfig): a datastructure with additional information required for execution
+
+        Returns:
+            TensorLike, tuple[TensorLike], tuple[tuple[TensorLike]]: A numeric result of the computation.
         """
 
         print(
-            f"LIGHTNING TENSOR execute called with:\nexecution_config={execution_config}\ncircuits={circuits}\n"
+            f"LIGHTNING TENSOR MPS Interface execute called with:\nexecution_config={execution_config}\n\ncircuits={circuits}\n"
         )
+
+        self._reset_state()
 
         results = []
         for circuit in circuits:
             circuit = circuit.map_to_standard_wires()
-            results.append(self.simulate(circuit))
+            results.append(self._simulate(circuit))
 
-        print(results)
+        results = tuple(results)
 
-        return tuple(results)
+        print(f"LIGHTNING TENSOR MPS Interface execute results={results}\n")
 
-    def simulate(self, tape: qml.tape.QuantumScript) -> Result:
+        return results
+
+    def _simulate(self, circuit: QuantumScript) -> Result:
         """Simulate a single quantum script.
 
         Args:
-            tape (QuantumScript): The single circuit to simulate
+            circuit (QuantumScript): The single circuit to simulate
 
         Returns:
-            tuple(TensorLike): The results of the simulation
-
-        # TODO: understand
-        Note that this function can return measurements for non-commuting observables simultaneously.
-
-        # TODO: understand
-        It does currently not support sampling or observables without diagonalizing gates.
+            Tuple[TensorLike]: The results of the simulation
 
         This function assumes that all operations provide matrices.
         """
 
-        if set(tape.wires) != set(range(tape.num_wires)):
-            print("La condizione si e' verificata")
-            wire_map = {w: i for i, w in enumerate(tape.wires)}
-            tape = qml.map_wires(tape, wire_map)
+        ##############################################################
+        ### PART 1: Applying operations
+        ##############################################################
 
-        for op in tape.operations:
+        for op in circuit.operations:
+            self._apply_operation(op)
 
-            print(self._circuit.to_dense())
+        ##############################################################
+        ### PART 2: Measurements
+        ##############################################################
 
-            print(f"Applying {op}")
+    def _measure(self, measurementprocess: MeasurementProcess):
+        """Apply a measurement to state when the measurement process has an observable with diagonalizing gates.
 
-            self._circuit.apply_gate(
-                op.matrix(), *op.wires, contract=False, parametrize=None
+        Args:
+            measurementprocess (StateMeasurement): measurement to apply to the state
+            state (TensorLike): state to apply the measurement to
+
+        Returns:
+            TensorLike: the result of the measurement
+        """
+
+        obs = measurementprocess.obs
+
+        return np.real(
+            self._circuitMPS.local_expectation(
+                G=obs.matrix(),
+                where=tuple(obs.wires),
+                dtype=self._dtype.__name__,
+                simplify_sequence="ADCRS",
+                simplify_atol=0.0,
             )
+        )
 
-            print(self._circuit.to_dense())
+    # return tuple(measure(mp) for mp in tape.measurements)
 
-        def measure(measurementprocess: MeasurementProcess):
-            """Apply a measurement to state when the measurement process has an observable with diagonalizing gates.
+    def _apply_operation(self, op: qml.operation.Operator):
+        """Apply a single operator to the MPS.
 
-            Args:
-                measurementprocess (StateMeasurement): measurement to apply to the state
-                state (TensorLike): state to apply the measurement to
+        Args:
+            op (Operator): The operation to apply.
+        """
 
-            Returns:
-                TensorLike: the result of the measurement
-            """
-            fs_opts = {
-                "simplify_sequence": "ADCRS",
-                "simplify_atol": 0.0,
-            }
+        print(f"\nLOG: applying {op} to the MPS")
 
-            obs = measurementprocess.obs
+        # TODO: investigate in `quimb` how to pass parameters required by PRD (cutoff, max_bond, etc.)
+        self._circuitMPS.apply_gate(
+            op.matrix(), *op.wires, contract="swap+split", parametrize=None
+        )
 
-            return np.real(
-                self._circuit.local_expectation(
-                    obs.matrix(), tuple(obs.wires), **fs_opts
-                )
-            )
-
-        return tuple(measure(mp) for mp in tape.measurements)
+        print(f"LOG: MPS after operation:")
+        print(self._circuitMPS.psi)
