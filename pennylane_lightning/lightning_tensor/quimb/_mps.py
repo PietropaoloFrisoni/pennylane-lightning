@@ -27,7 +27,12 @@ from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
 from pennylane.tape import QuantumTape, QuantumScript
 from pennylane.typing import Result, ResultBatch, TensorLike
 
-from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement
+from pennylane.measurements import (
+    ExpectationMP,
+    MeasurementProcess,
+    StateMeasurement,
+    VarianceMP,
+)
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
@@ -208,6 +213,9 @@ class QuimbMPS:
             if isinstance(measurementprocess, ExpectationMP):
                 return self._expval
 
+            if isinstance(measurementprocess, VarianceMP):
+                return self._var
+
         raise NotImplementedError
 
     def _expval(self, measurementprocess: MeasurementProcess):
@@ -232,5 +240,44 @@ class QuimbMPS:
                 dtype=self._dtype.__name__,
                 simplify_sequence="ADCRS",
                 simplify_atol=0.0,
+            )
+        )
+
+    def _var(self, measurementprocess: MeasurementProcess):
+        """Variance of the supplied observable contained in the MeasurementProcess.
+
+        Args:
+            measurementprocess (StateMeasurement): measurement to apply to the MPS.
+
+        Returns:
+            Variance of the observable.
+        """
+
+        obs = measurementprocess.obs
+
+        if self._verbosity:
+            print(f"\nLOG: measuring the var of obs {obs}...")
+
+        op_matrix = obs.matrix()
+
+        op_matrix_sq = np.dot(obs.matrix(), obs.matrix())
+
+        return np.real(
+            self._circuitMPS.local_expectation(
+                G=op_matrix_sq,
+                where=tuple(obs.wires),
+                dtype=self._dtype.__name__,
+                simplify_sequence="ADCRS",
+                simplify_atol=0.0,
+            )
+        ) - np.square(
+            np.real(
+                self._circuitMPS.local_expectation(
+                    G=op_matrix,
+                    where=tuple(obs.wires),
+                    dtype=self._dtype.__name__,
+                    simplify_sequence="ADCRS",
+                    simplify_atol=0.0,
+                )
             )
         )
