@@ -197,14 +197,11 @@ class TestExpvalHamiltonian:
         ],
     )
     def test_expval_hamiltonian(self, obs, coeffs, expected):
-        """Test expval with Hamiltonian"""
-
-        ham = qml.Hamiltonian(coeffs, obs)
-
-        [qml.RX(0.4, wires=[0]), qml.RY(-0.2, wires=[1])]
+        """Test expval with Hamiltonian."""
 
         tape = qml.tape.QuantumScript(
-            [qml.RX(0.4, wires=[0]), qml.RY(-0.2, wires=[1])], [qml.expval(ham)]
+            [qml.RX(0.4, wires=[0]), qml.RY(-0.2, wires=[1])],
+            [qml.expval(qml.Hamiltonian(coeffs, obs))],
         )
 
         num_wires = 2
