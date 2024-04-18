@@ -76,10 +76,9 @@ class LightningTensor(Device):
         **kwargs: keyword arguments.
     """
 
-    # TODO: decide whether to move some of the attributes in interfaces classes
     # pylint: disable=too-many-instance-attributes
 
-    # So far we just insert the options for MPS simulator
+    # So far we just consider the options for MPS simulator
     _device_options = (
         "apply_reverse_lightcone",
         "backend",
@@ -129,15 +128,15 @@ class LightningTensor(Device):
         self._measure_algorithm = kwargs.get("measure_algorithm", None)
 
         # common options (MPS and TN)
+        self._return_tn = kwargs.get("return_tn", False)
+        self._rehearse = kwargs.get("rehearse", False)
         self._apply_reverse_lightcone = kwargs.get("apply_reverse_lightcone", None)
-        self._return_tn = kwargs.get("return_tn", None)
-        self._rehearse = kwargs.get("rehearse", None)
 
         self._interface = None
 
-        # TODO: implement the remaining combs of `backend` and `interface`
+        # TODO: implement the remaining interfaces when they will be available
         if self.backend == "quimb" and self.method == "mps":
-            self._interface = QuimbMPS(self._num_wires, self._c_dtype)
+            self._interface = QuimbMPS(self._num_wires, self._c_dtype, **kwargs)
 
     @property
     def name(self):
@@ -161,7 +160,7 @@ class LightningTensor(Device):
 
     @property
     def c_dtype(self):
-        """State vector complex data type."""
+        """Tensor complex data type."""
         return self._c_dtype
 
     dtype = c_dtype
@@ -170,14 +169,9 @@ class LightningTensor(Device):
         """
         Update the execution config with choices for how the device should be used and the device options.
         """
+        # TODO: add options for gradients next quarter
+
         updated_values = {}
-        if config.use_device_gradient is None:
-            updated_values["use_device_gradient"] = config.gradient_method in (
-                "best",
-                "adjoint",
-            )
-        if config.grad_on_execution is None:
-            updated_values["grad_on_execution"] = True
 
         new_device_options = dict(config.device_options)
         for option in self._device_options:
@@ -252,7 +246,8 @@ class LightningTensor(Device):
             Bool: Whether or not a derivative can be calculated provided the given information.
 
         """
-        # TODO: call the function implemented in the appropriate interface
+        # TODO: implement during next quarter
+        return False
 
     def compute_derivatives(
         self,
@@ -268,7 +263,9 @@ class LightningTensor(Device):
         Returns:
             Tuple: The jacobian for each trainable parameter.
         """
-        # TODO: call the function implemented in the appropriate interface
+        raise NotImplementedError(
+            "The computation of derivatives has yet to be implemented for the lightning.tensor device."
+        )
 
     def execute_and_compute_derivatives(
         self,
@@ -284,7 +281,9 @@ class LightningTensor(Device):
         Returns:
             tuple: A numeric result of the computation and the gradient.
         """
-        # TODO: call the function implemented in the appropriate interface
+        raise NotImplementedError(
+            "The computation of derivatives has yet to be implemented for the lightning.tensor device."
+        )
 
     def supports_vjp(
         self,
@@ -300,7 +299,9 @@ class LightningTensor(Device):
         Returns:
             Bool: Whether or not a derivative can be calculated provided the given information.
         """
-        # TODO: call the function implemented in the appropriate interface
+        raise NotImplementedError(
+            "The computation of derivatives has yet to be implemented for the lightning.tensor device."
+        )
 
     def compute_vjp(
         self,
@@ -320,7 +321,9 @@ class LightningTensor(Device):
         Returns:
             tensor-like: A numeric result of computing the vector jacobian product.
         """
-        # TODO: call the function implemented in the appropriate interface
+        raise NotImplementedError(
+            "The computation of vector jacobian product has yet to be implemented for the lightning.tensor device."
+        )
 
     def execute_and_compute_vjp(
         self,
@@ -339,4 +342,6 @@ class LightningTensor(Device):
         Returns:
             Tuple, Tuple: the result of executing the scripts and the numeric result of computing the vector jacobian product
         """
-        # TODO: call the function implemented in the appropriate interface
+        raise NotImplementedError(
+            "The computation of vector jacobian product has yet to be implemented for the lightning.tensor device."
+        )

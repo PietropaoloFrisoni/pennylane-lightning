@@ -16,23 +16,21 @@ Class implementation for MPS manipulation based on the `quimb` Python package.
 """
 
 
-import quimb.tensor as qtn
-from pennylane.wires import Wires
-
 from typing import Callable, Sequence, Union
 
 import pennylane as qml
+import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.tape import QuantumTape, QuantumScript
-from pennylane.typing import Result, ResultBatch, TensorLike
-
 from pennylane.measurements import (
     ExpectationMP,
     MeasurementProcess,
     StateMeasurement,
     VarianceMP,
 )
+from pennylane.tape import QuantumScript, QuantumTape
+from pennylane.typing import Result, ResultBatch, TensorLike
+from pennylane.wires import Wires
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
@@ -64,16 +62,37 @@ class QuimbMPS:
     Interfaces with `quimb` for MPS manipulation.
     """
 
-    def __init__(self, num_wires, dtype=np.complex128):
+    def __init__(self, num_wires, dtype=np.complex128, **kwargs):
 
         if dtype not in [np.complex64, np.complex128]:  # pragma: no cover
             raise TypeError(f"Unsupported complex type: {dtype}")
 
-        self._num_wires = num_wires
         self._wires = Wires(range(num_wires))
         self._dtype = dtype
-        self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
         self._verbosity = True
+
+        self.init_state_ops = {
+            "dtype": self._dtype.__name__,
+            "tags": [str(l) for l in self._wires.labels],
+        }
+
+        self.gate_opts = {
+            "contract": "swap+split",
+            "parametrize": None,
+            "cutoff": kwargs.get("cutoff", 1e-16),
+            "max_bond": kwargs.get("max_bond_dim", None),
+        }
+
+        self.expval_opts = {
+            "dtype": self._dtype.__name__,
+            "simplify_sequence": "ADCRS",
+            "simplify_atol": 0.0,
+            "rehearse": kwargs.get("rehearse", False),
+        }
+
+        self.return_tn = kwargs.get("return_tn", False)
+
+        self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
     @property
     def state(self):
@@ -99,9 +118,7 @@ class QuimbMPS:
         """
 
         return qtn.MPS_computational_state(
-            "0" * max(1, self._num_wires),
-            dtype=self._dtype.__name__,
-            tags=[str(l) for l in self._wires.labels],
+            "0" * max(1, len(self._wires)), **self.init_state_ops
         )
 
     # pylint: disable=unused-argument
@@ -178,10 +195,7 @@ class QuimbMPS:
         if self._verbosity:
             print(f"\nLOG: applying {op} to the circuit...")
 
-        # TODO: investigate in `quimb` how to pass parameters required by PRD (cutoff, max_bond, etc.)
-        self._circuitMPS.apply_gate(
-            op.matrix(), *op.wires, contract="swap+split", parametrize=None
-        )
+        self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self.gate_opts)
 
         if self._verbosity:
             print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
@@ -235,11 +249,7 @@ class QuimbMPS:
 
         return np.real(
             self._circuitMPS.local_expectation(
-                G=obs.matrix(),
-                where=tuple(obs.wires),
-                dtype=self._dtype.__name__,
-                simplify_sequence="ADCRS",
-                simplify_atol=0.0,
+                obs.matrix(), tuple(obs.wires), **self.expval_opts
             )
         )
 
