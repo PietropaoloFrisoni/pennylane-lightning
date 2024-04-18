@@ -138,6 +138,12 @@ class LightningTensor(Device):
         if self.backend == "quimb" and self.method == "mps":
             self._interface = QuimbMPS(self._num_wires, self._c_dtype, **kwargs)
 
+        for arg in kwargs:
+            if arg not in self._device_options:
+                raise TypeError(
+                    f"Unexpected argument: {arg} during initialization of lightning.tensor."
+                )
+
     @property
     def name(self):
         """The name of the device."""
