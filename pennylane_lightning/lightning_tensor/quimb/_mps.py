@@ -19,13 +19,14 @@ from typing import Callable, Sequence, Union
 
 import pennylane as qml
 import quimb.tensor as qtn
-from ._utilities import op_2_mpo
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
 from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
+
+from ._utils import op_2_mpo
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
