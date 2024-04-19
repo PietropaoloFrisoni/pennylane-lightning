@@ -15,19 +15,14 @@
 Class implementation for MPS manipulation based on the `quimb` Python package.
 """
 
-
 from typing import Callable, Sequence, Union
 
 import pennylane as qml
 import quimb.tensor as qtn
+from ._utilities import op_2_mpo
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.measurements import (
-    ExpectationMP,
-    MeasurementProcess,
-    StateMeasurement,
-    VarianceMP,
-)
+from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
@@ -178,9 +173,8 @@ class QuimbMPS:
 
         if not circuit.shots:
             if len(circuit.measurements) == 1:
-                return self._measurement(circuit.measurements[0])
-
-            return tuple(self._measurement(mp) for mp in circuit.measurements)
+                return self.measurement(circuit.measurements[0])
+            return tuple(self.measurement(mp) for mp in circuit.measurements)
 
         raise NotImplementedError
 
@@ -194,12 +188,25 @@ class QuimbMPS:
         if self._verbosity:
             print(f"\nLOG: applying {op} to the circuit...")
 
-        self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
+        if len(op.wires) > 2:
+
+            mpo = op_2_mpo(op, self._circuitMPS.psi)
+
+            newstate = mpo.apply(self._circuitMPS.psi, compress=True)
+
+            self._circuitMPS._psi.__dict__.update(newstate.__dict__)
+
+            # self._circuitMPS._psi = newstate
+
+            print("OMMIODDIO NON HA DATO ERROR")
+
+        else:
+            self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
 
         if self._verbosity:
             print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
 
-    def _measurement(self, measurementprocess: MeasurementProcess):
+    def measurement(self, measurementprocess: MeasurementProcess):
         """Measure the measurement required by the circuit over the MPS.
 
         Args:
@@ -224,14 +231,14 @@ class QuimbMPS:
         """
         if isinstance(measurementprocess, StateMeasurement):
             if isinstance(measurementprocess, ExpectationMP):
-                return self._expval
+                return self.expval
 
             if isinstance(measurementprocess, VarianceMP):
-                return self._var
+                return self.var
 
         raise NotImplementedError
 
-    def _expval(self, measurementprocess: MeasurementProcess):
+    def expval(self, measurementprocess: MeasurementProcess):
         """Expectation value of the supplied observable contained in the MeasurementProcess.
 
         Args:
@@ -246,13 +253,9 @@ class QuimbMPS:
         if self._verbosity:
             print(f"\nLOG: measuring the expval of obs {obs}...")
 
-        return np.real(
-            self._circuitMPS.local_expectation(
-                obs.matrix(), tuple(obs.wires), **self._expval_opts
-            )
-        )
+        return self._local_expectation(obs.matrix(), tuple(obs.wires))
 
-    def _var(self, measurementprocess: MeasurementProcess):
+    def var(self, measurementprocess: MeasurementProcess):
         """Variance of the supplied observable contained in the MeasurementProcess.
 
         Args:
@@ -267,26 +270,19 @@ class QuimbMPS:
         if self._verbosity:
             print(f"\nLOG: measuring the var of obs {obs}...")
 
-        op_matrix = obs.matrix()
+        obs_mat = obs.matrix()
+        wires = tuple(obs.wires)
+        expectation_squared = self._local_expectation(np.dot(obs_mat, obs_mat), wires)
+        expectation = self._local_expectation(obs_mat, wires)
 
-        op_matrix_sq = np.dot(obs.matrix(), obs.matrix())
+        return expectation_squared - np.square(expectation)
+
+    def _local_expectation(self, matrix, wires):
 
         return np.real(
             self._circuitMPS.local_expectation(
-                G=op_matrix_sq,
-                where=tuple(obs.wires),
-                dtype=self._dtype.__name__,
-                simplify_sequence="ADCRS",
-                simplify_atol=0.0,
-            )
-        ) - np.square(
-            np.real(
-                self._circuitMPS.local_expectation(
-                    G=op_matrix,
-                    where=tuple(obs.wires),
-                    dtype=self._dtype.__name__,
-                    simplify_sequence="ADCRS",
-                    simplify_atol=0.0,
-                )
+                matrix,
+                wires,
+                **self._expval_opts,
             )
         )

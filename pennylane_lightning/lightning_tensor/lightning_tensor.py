@@ -31,7 +31,7 @@ from pennylane.tape import QuantumTape
 from pennylane.transforms.core import TransformProgram
 from pennylane.typing import Result, ResultBatch
 
-from .quimb._mps import QuimbMPS, stopping_condition, accepted_observables
+from .quimb._mps import QuimbMPS, accepted_observables, stopping_condition
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
@@ -176,9 +176,7 @@ class LightningTensor(Device):
 
     dtype = c_dtype
 
-    def _setup_execution_config(
-        self, config: Optional[ExecutionConfig] = DefaultExecutionConfig
-    ):
+    def _setup_execution_config(self, config: Optional[ExecutionConfig] = DefaultExecutionConfig):
         """
         Update the execution config with choices for how the device should be used and the device options.
         """
@@ -220,9 +218,7 @@ class LightningTensor(Device):
         program = TransformProgram()
 
         program.add_transform(validate_measurements, name=self.name)
-        program.add_transform(
-            validate_observables, accepted_observables, name=self.name
-        )
+        program.add_transform(validate_observables, accepted_observables, name=self.name)
         program.add_transform(validate_device_wires, self.wires, name=self.name)
 
         return program, config

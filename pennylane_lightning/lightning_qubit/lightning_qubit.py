@@ -58,9 +58,7 @@ QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 
-def simulate(
-    circuit: QuantumScript, state: LightningStateVector, mcmc: dict = None
-) -> Result:
+def simulate(circuit: QuantumScript, state: LightningStateVector, mcmc: dict = None) -> Result:
     """Simulate a single quantum script.
 
     Args:
@@ -108,14 +106,10 @@ def jacobian(circuit: QuantumTape, state: LightningStateVector, batch_obs=False)
     circuit = circuit.map_to_standard_wires()
     state.reset_state()
     final_state = state.get_final_state(circuit)
-    return LightningAdjointJacobian(
-        final_state, batch_obs=batch_obs
-    ).calculate_jacobian(circuit)
+    return LightningAdjointJacobian(final_state, batch_obs=batch_obs).calculate_jacobian(circuit)
 
 
-def simulate_and_jacobian(
-    circuit: QuantumTape, state: LightningStateVector, batch_obs=False
-):
+def simulate_and_jacobian(circuit: QuantumTape, state: LightningStateVector, batch_obs=False):
     """Simulate a single quantum script and compute its Jacobian.
 
     Args:
@@ -132,9 +126,7 @@ def simulate_and_jacobian(
     """
     circuit = circuit.map_to_standard_wires()
     res = simulate(circuit, state)
-    jac = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_jacobian(
-        circuit
-    )
+    jac = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_jacobian(circuit)
     return res, jac
 
 
@@ -189,9 +181,7 @@ def simulate_and_vjp(
     """
     circuit = circuit.map_to_standard_wires()
     res = simulate(circuit, state)
-    _vjp = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_vjp(
-        circuit, cotangents
-    )
+    _vjp = LightningAdjointJacobian(state, batch_obs=batch_obs).calculate_vjp(circuit, cotangents)
     return res, _vjp
 
 
@@ -475,9 +465,7 @@ class LightningQubit(Device):
 
         super().__init__(wires=wires, shots=shots)
 
-        self._statevector = LightningStateVector(
-            num_wires=len(self.wires), dtype=c_dtype
-        )
+        self._statevector = LightningStateVector(num_wires=len(self.wires), dtype=c_dtype)
 
         # TODO: Investigate usefulness of creating numpy random generator
         seed = np.random.randint(0, high=10000000) if seed == "global" else seed
@@ -561,9 +549,7 @@ class LightningQubit(Device):
         program = TransformProgram()
 
         program.add_transform(validate_measurements, name=self.name)
-        program.add_transform(
-            validate_observables, accepted_observables, name=self.name
-        )
+        program.add_transform(validate_observables, accepted_observables, name=self.name)
         program.add_transform(validate_device_wires, self.wires, name=self.name)
         program.add_transform(mid_circuit_measurements, device=self)
         program.add_transform(
@@ -662,8 +648,7 @@ class LightningQubit(Device):
 
         batch_obs = execution_config.device_options.get("batch_obs", self._batch_obs)
         return tuple(
-            jacobian(circuit, self._statevector, batch_obs=batch_obs)
-            for circuit in circuits
+            jacobian(circuit, self._statevector, batch_obs=batch_obs) for circuit in circuits
         )
 
     def execute_and_compute_derivatives(
@@ -687,8 +672,7 @@ class LightningQubit(Device):
 
         batch_obs = execution_config.device_options.get("batch_obs", self._batch_obs)
         results = tuple(
-            simulate_and_jacobian(c, self._statevector, batch_obs=batch_obs)
-            for c in circuits
+            simulate_and_jacobian(c, self._statevector, batch_obs=batch_obs) for c in circuits
         )
         return tuple(zip(*results))
 
