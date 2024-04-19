@@ -62,7 +62,7 @@ class QuimbMPS:
     Interfaces with `quimb` for MPS manipulation.
     """
 
-    def __init__(self, num_wires, dtype=np.complex128, **kwargs):
+    def __init__(self, num_wires, interf_opts, dtype=np.complex128):
 
         if dtype not in [np.complex64, np.complex128]:  # pragma: no cover
             raise TypeError(f"Unsupported complex type: {dtype}")
@@ -71,26 +71,27 @@ class QuimbMPS:
         self._dtype = dtype
         self._verbosity = True
 
-        self.init_state_ops = {
+        self._init_state_ops = {
+            "binary": "0" * max(1, len(self._wires)),
             "dtype": self._dtype.__name__,
             "tags": [str(l) for l in self._wires.labels],
         }
 
-        self.gate_opts = {
+        self._gate_opts = {
             "contract": "swap+split",
             "parametrize": None,
-            "cutoff": kwargs.get("cutoff", 1e-16),
-            "max_bond": kwargs.get("max_bond_dim", None),
+            "cutoff": interf_opts["cutoff"],
+            "max_bond": interf_opts["max_bond_dim"],
         }
 
-        self.expval_opts = {
+        self._expval_opts = {
             "dtype": self._dtype.__name__,
             "simplify_sequence": "ADCRS",
             "simplify_atol": 0.0,
-            "rehearse": kwargs.get("rehearse", False),
+            "rehearse": interf_opts["rehearse"],
         }
 
-        self.return_tn = kwargs.get("return_tn", False)
+        self._return_tn = interf_opts["return_tn"]
 
         self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
@@ -117,9 +118,7 @@ class QuimbMPS:
             array: The initial MPS of a circuit.
         """
 
-        return qtn.MPS_computational_state(
-            "0" * max(1, len(self._wires)), **self.init_state_ops
-        )
+        return qtn.MPS_computational_state(**self._init_state_ops)
 
     # pylint: disable=unused-argument
     def execute(
@@ -195,7 +194,7 @@ class QuimbMPS:
         if self._verbosity:
             print(f"\nLOG: applying {op} to the circuit...")
 
-        self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self.gate_opts)
+        self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
 
         if self._verbosity:
             print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
@@ -249,7 +248,7 @@ class QuimbMPS:
 
         return np.real(
             self._circuitMPS.local_expectation(
-                obs.matrix(), tuple(obs.wires), **self.expval_opts
+                obs.matrix(), tuple(obs.wires), **self._expval_opts
             )
         )
 

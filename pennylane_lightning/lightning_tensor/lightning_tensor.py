@@ -133,10 +133,15 @@ class LightningTensor(Device):
         self._apply_reverse_lightcone = kwargs.get("apply_reverse_lightcone", None)
 
         self._interface = None
+        interface_opts = self._setup_execution_config().device_options
 
         # TODO: implement the remaining interfaces when they will be available
         if self.backend == "quimb" and self.method == "mps":
-            self._interface = QuimbMPS(self._num_wires, self._c_dtype, **kwargs)
+            self._interface = QuimbMPS(
+                self._num_wires,
+                interface_opts,
+                self._c_dtype,
+            )
 
         for arg in kwargs:
             if arg not in self._device_options:
@@ -171,7 +176,9 @@ class LightningTensor(Device):
 
     dtype = c_dtype
 
-    def _setup_execution_config(self, config):
+    def _setup_execution_config(
+        self, config: Optional[ExecutionConfig] = DefaultExecutionConfig
+    ):
         """
         Update the execution config with choices for how the device should be used and the device options.
         """
