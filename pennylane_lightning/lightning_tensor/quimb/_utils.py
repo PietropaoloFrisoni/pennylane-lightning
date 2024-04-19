@@ -20,7 +20,7 @@ import numpy as np
 import quimb.tensor as qtn
 
 
-def op_2_tensor(op):
+def from_op_to_tensor(op):
     """Returns the Quimb tensor corresponding to a PennyLane operator."""
     wires = tuple(op.wires)
     bra_inds = []
@@ -62,7 +62,7 @@ def shift_tensor_indices(tensors):
                     t.moveindex_(ind, -1)
 
 
-def tensors_2_arrays(tensors, wires, n):
+def from_tensors_to_arrays(tensors, wires, n):
     """Converts a list of tensors into arrays that can be fed into ``MatrixProductOperator``."""
     arrays = []
     for _ in range(wires[0]):
@@ -82,10 +82,18 @@ def tensors_2_arrays(tensors, wires, n):
     return arrays
 
 
-def op_2_mpo(op, state):
+def from_op_to_mpo(op, state):
     """Returns the MPO corresponding to the given operator."""
     wires = tuple(op.wires)
-    tensor = op_2_tensor(op)
+    tensor = from_op_to_tensor(op)
     tensors = split_tensor(tensor, wires)
-    arrays = tensors_2_arrays(tensors, wires, state.L)
-    return qtn.MatrixProductOperator(arrays, bond_name="x{}")
+    arrays = from_tensors_to_arrays(tensors, wires, state.L)
+    return qtn.MatrixProductOperator(
+        arrays,
+        shape="lrud",
+        site_tag_id="I{}",
+        tags=None,
+        upper_ind_id="k{}",
+        lower_ind_id="b{}",
+        bond_name="x{}",
+    )

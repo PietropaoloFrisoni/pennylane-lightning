@@ -15,6 +15,7 @@
 Unit tests for the ``quimb`` interface.
 """
 
+import itertools
 import math
 
 import numpy as np
@@ -22,6 +23,7 @@ import pennylane as qml
 import pytest
 import quimb.tensor as qtn
 from conftest import LightningDevice  # tested device
+from pennylane.devices import DefaultQubit
 from pennylane.wires import Wires
 
 from pennylane_lightning.lightning_tensor import LightningTensor
@@ -71,9 +73,7 @@ class TestExpval:
         measurements = [qml.expval(qml.PauliZ(0))]
         tape = qml.tape.QuantumScript(ops, measurements)
 
-        num_wires = 3
-        wires = Wires(range(num_wires))
-        dev = LightningTensor(wires=wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
         result = dev.execute(circuits=tape)
         expected = np.cos(theta)
         assert np.allclose(result, expected)
@@ -88,9 +88,7 @@ class TestExpval:
         ]
         tape = qml.tape.QuantumScript(ops, measurements)
 
-        num_wires = 2
-        wires = Wires(range(num_wires))
-        dev = LightningTensor(wires=wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
         result = dev.execute(circuits=tape)
         expected = 1.0
         assert np.allclose(result, expected)
@@ -102,9 +100,7 @@ class TestExpval:
         measurements = [qml.expval(qml.Identity(wires=[0, 1]))]
         tape = qml.tape.QuantumScript(ops, measurements)
 
-        num_wires = 2
-        wires = Wires(range(num_wires))
-        dev = LightningTensor(wires=wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
         result = dev.execute(circuits=tape)
         expected = 1.0
         assert np.allclose(result, expected)
@@ -148,9 +144,7 @@ class TestExpval:
             [qml.expval(Obs[0]), qml.expval(Obs[1])],
         )
 
-        num_wires = 3
-        wires = Wires(range(num_wires))
-        dev = LightningTensor(wires=wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
         result = dev.execute(circuits=tape)
         expected = expected_fn(theta, phi)
 
@@ -191,9 +185,49 @@ class TestExpvalHamiltonian:
             [qml.expval(qml.Hamiltonian(coeffs, obs))],
         )
 
-        num_wires = 2
-        wires = Wires(range(num_wires))
-        dev = LightningTensor(wires=wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
         result = dev.execute(circuits=tape)
 
-        assert np.allclose(result, expected)
+        assert np.allclose(result, expected, atol=1.0e-8)
+
+
+@pytest.mark.parametrize("phi", PHI)
+class TestExpOperatorArithmetic:
+    """Test integration with SProd, Prod, and Sum."""
+
+    def test_sprod(self, phi, tol):
+        """Test the `SProd` class."""
+        tape = qml.tape.QuantumScript(
+            [qml.RX(phi, wires=0)],
+            [qml.expval(qml.s_prod(0.5, qml.PauliZ(0)))],
+        )
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        result = dev.execute(circuits=tape)
+        expected = 0.5 * np.cos(phi)
+
+        assert np.allclose(result, expected, tol)
+
+    def test_prod(self, phi, tol):
+        """Test the `Prod` class."""
+        tape = qml.tape.QuantumScript(
+            [qml.RX(phi, wires=0), qml.Hadamard(1), qml.PauliZ(1)],
+            [qml.expval(qml.prod(qml.PauliZ(0), qml.PauliX(1)))],
+        )
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        result = dev.execute(circuits=tape)
+        expected = -np.cos(phi)
+
+        assert np.allclose(result, expected, tol)
+
+    @pytest.mark.parametrize("theta", THETA)
+    def test_sum(self, phi, theta, tol):
+        """Test the `Sum` class."""
+        tape = qml.tape.QuantumScript(
+            [qml.RX(phi, wires=0), qml.RY(theta, wires=1)],
+            [qml.expval(qml.sum(qml.PauliZ(0), qml.PauliX(1)))],
+        )
+        dev = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        result = dev.execute(circuits=tape)
+        expected = np.cos(phi) + np.sin(theta)
+
+        assert np.allclose(result, expected, tol)

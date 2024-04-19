@@ -26,7 +26,7 @@ from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
 
-from ._utils import op_2_mpo
+from ._utils import from_op_to_mpo
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
@@ -189,20 +189,18 @@ class QuimbMPS:
         if self._verbosity:
             print(f"\nLOG: applying {op} to the circuit...")
 
-        if len(op.wires) > 2:
+        if len(op.wires) <= 2:
 
-            mpo = op_2_mpo(op, self._circuitMPS.psi)
-
-            newstate = mpo.apply(self._circuitMPS.psi, compress=True)
-
-            self._circuitMPS._psi.__dict__.update(newstate.__dict__)
-
-            # self._circuitMPS._psi = newstate
-
-            print("OMMIODDIO NON HA DATO ERROR")
+            self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
 
         else:
-            self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
+
+            mat_prod_op = from_op_to_mpo(op, self._circuitMPS.psi)
+            new_state = mat_prod_op.apply(self._circuitMPS.psi, compress=True)
+            self._circuitMPS._psi.__dict__.update(new_state.__dict__)
+
+            gate = qtn.circuit.parse_to_gate(op.matrix(), tuple(op.wires))
+            self._circuitMPS.gates.append(gate)
 
         if self._verbosity:
             print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
