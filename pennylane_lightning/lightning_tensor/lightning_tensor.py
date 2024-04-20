@@ -66,8 +66,8 @@ class LightningTensor(Device):
     Args:
         wires (int): The number of wires to initialize the device with.
             Defaults to ``None`` if not specified.
-        backend (str): Supported backend. Must be one of ``quimb`` or ``cutensornet``.
-        method (str): Supported method. Must be one of ``mps`` or ``tn``.
+        backend (str): Supported backend. Currently, only ``quimb`` is supported.
+        method (str): Supported method. Currently, only ``mps`` is supported.
         shots (int): How many times the circuit should be evaluated (or sampled) to estimate
             the expectation values. Currently, it can only be ``None``, so that computation of
             statistics like expectation values and variances is performed analytically.
@@ -183,7 +183,7 @@ class LightningTensor(Device):
 
     def _setup_execution_config(
         self, config: Optional[ExecutionConfig] = DefaultExecutionConfig
-    ):
+    ) -> ExecutionConfig:
         """
         Update the execution config with choices for how the device should be used and the device options.
         """
@@ -225,9 +225,7 @@ class LightningTensor(Device):
         program = TransformProgram()
 
         program.add_transform(validate_measurements, name=self.name)
-        program.add_transform(
-            validate_observables, accepted_observables, name=self.name
-        )
+        program.add_transform(validate_observables, accepted_observables, name=self.name)
         program.add_transform(validate_device_wires, self.wires, name=self.name)
 
         return program, config

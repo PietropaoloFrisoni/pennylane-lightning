@@ -25,15 +25,16 @@ from pennylane.tape import QuantumScript
 if not LightningDevice._new_API:
     pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
 
-from pennylane_lightning.lightning_tensor import LightningTensor
-
 # if not LightningDevice._CPP_BINARY_AVAILABLE:  # pylint: disable=protected-access
 #    pytest.skip("No binary module found. Skipping.", allow_module_level=True)
 
 
+from pennylane_lightning.lightning_tensor import LightningTensor
+
+
 @pytest.fixture(params=[np.complex64, np.complex128])
 def dev(request):
-    return LightningDevice(wires=3, c_dtype=request.param)
+    return LightningTensor(wires=3, c_dtype=request.param)
 
 
 def calculate_reference(tape):
@@ -44,11 +45,9 @@ def calculate_reference(tape):
     return transf_fn(results)
 
 
-def process_and_execute(dev, tape):
-    program, _ = dev.preprocess()
-    tapes, transf_fn = program([tape])
-    results = dev.execute(tapes)
-    return transf_fn(results)
+def execute(dev, tape):
+    results = dev.execute(tape)
+    return results
 
 
 @pytest.mark.parametrize("theta, phi", list(zip(THETA, PHI)))
@@ -68,10 +67,7 @@ class TestVar:
         measurements = [qml.var(qml.PauliZ(0))]
         tape = qml.tape.QuantumScript(ops, measurements)
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        result = dev.execute(tape)
         expected = 1 - np.cos(theta) ** 2
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
@@ -84,10 +80,7 @@ class TestVar:
             [qml.RX(theta, wires=[0]), qml.RX(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.var(qml.Identity(wires=[0])), qml.var(qml.Identity(wires=[1]))],
         )
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        result = dev.execute(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
         assert np.allclose(0.0, result, atol=tol, rtol=0)
@@ -99,10 +92,7 @@ class TestVar:
             [qml.RX(theta, wires=[0]), qml.RX(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.var(qml.Identity(wires=[0, 1]))],
         )
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        result = dev.execute(tape)
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
         assert np.allclose(0.0, result, atol=tol, rtol=0)
 
@@ -123,16 +113,13 @@ class TestVar:
             [qml.var(qml.PauliZ(wires=wires[0])), qml.var(qml.PauliZ(wires=wires[1]))],
         )
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(device, tape)
         reference_val = np.array(
             [1 - np.cos(theta) ** 2, 1 - np.cos(theta) ** 2 * np.cos(phi) ** 2]
         )
 
         tol = 1e-5 if device.c_dtype == np.complex64 else 1e-7
-        assert np.allclose(result, reference_val, atol=tol, rtol=0)
+        assert np.allclose(calculated_val, reference_val, atol=tol, rtol=0)
 
     @pytest.mark.parametrize(
         "Obs, Op, expected_fn",
@@ -147,7 +134,9 @@ class TestVar:
             (
                 [qml.PauliY(wires=[0]), qml.PauliY(wires=[1])],
                 qml.RX,
-                lambda theta, phi: np.array([1, 1 - np.cos(theta) ** 2 * np.sin(phi) ** 2]),
+                lambda theta, phi: np.array(
+                    [1, 1 - np.cos(theta) ** 2 * np.sin(phi) ** 2]
+                ),
             ),
             (
                 [qml.PauliZ(wires=[0]), qml.PauliZ(wires=[1])],
@@ -168,17 +157,16 @@ class TestVar:
             ),
         ],
     )
-    def test_single_wire_observables_variance(self, Obs, Op, expected_fn, theta, phi, dev):
+    def test_single_wire_observables_variance(
+        self, Obs, Op, expected_fn, theta, phi, dev
+    ):
         """Test that variance values for single wire observables are correct"""
 
         tape = qml.tape.QuantumScript(
             [Op(theta, wires=[0]), Op(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.var(Obs[0]), qml.var(Obs[1])],
         )
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        result = execute(dev, tape)
         expected = expected_fn(theta, phi)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
@@ -195,14 +183,11 @@ class TestVar:
             for idx in range(3):
                 qml.var(qml.Hermitian([[1, 0], [0, -1]], wires=[idx]))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
-        assert np.allclose(result, reference_val, atol=tol, rtol=0)
+        assert np.allclose(calculated_val, reference_val, atol=tol, rtol=0)
 
     def test_hamiltonian_variance(self, theta, phi, dev):
         """Tests a Hamiltonian."""
@@ -226,14 +211,11 @@ class TestVar:
 
         tape2 = QuantumScript(tape1.operations, [qml.var(qml.dot(ham.coeffs, ham.ops))])
 
-        devt = LightningTensor(
-            wires=tape2.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape2)
+        calculated_val = execute(dev, tape1)
         reference_val = calculate_reference(tape2)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
-        assert np.allclose(result, reference_val, atol=tol, rtol=0)
+        assert np.allclose(calculated_val, reference_val, atol=tol, rtol=0)
 
     def test_sparse_hamiltonian_variance(self, theta, phi, dev):
         """Tests a Hamiltonian."""
@@ -261,14 +243,11 @@ class TestVar:
             tape1.operations, [qml.var(qml.Hermitian(ham.matrix(), wires=[0, 1]))]
         )
 
-        devt = LightningTensor(
-            wires=tape2.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape2)
+        calculated_val = execute(dev, tape1)
         reference_val = calculate_reference(tape2)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
-        assert np.allclose(result, reference_val, atol=tol, rtol=0)
+        assert np.allclose(calculated_val, reference_val, atol=tol, rtol=0)
 
 
 @pytest.mark.parametrize("phi", PHI)
@@ -296,15 +275,12 @@ class TestOperatorArithmetic:
             [qml.var(obs)],
         )
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        tol = 1e-5  # if dev.c_dtype == np.complex64 else 1e-7
+        tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_integration(self, phi, dev, tol):
         """Test a Combination of `Sum`, `SProd`, and `Prod`."""
@@ -319,15 +295,12 @@ class TestOperatorArithmetic:
             [qml.var(obs)],
         )
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        tol = 1e-5  # if dev.c_dtype == np.complex64 else 1e-7
+        tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
 
 @pytest.mark.parametrize("theta, phi, varphi", list(zip(THETA, PHI, VARPHI)))
@@ -345,15 +318,12 @@ class TestTensorVar:
             qml.CNOT(wires=[1, 2])
             qml.var(qml.PauliX(0) @ qml.PauliY(2))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        tol = 1e-5  # if dev.c_dtype == np.complex64 else 1e-7
+        tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_PauliZ_identity(self, theta, phi, varphi, dev, tol):
         """Tests a tensor product involving PauliZ and Identity."""
@@ -367,15 +337,12 @@ class TestTensorVar:
             qml.CNOT(wires=[1, 2])
             qml.var(qml.PauliZ(0) @ qml.Identity(1) @ qml.PauliZ(2))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        tol = 1e-5  # if dev.c_dtype == np.complex64 else 1e-7
+        tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_PauliZ_hadamard_PauliY(self, theta, phi, varphi, dev, tol):
         """Tests a tensor product involving PauliY, PauliZ and Hadamard."""
@@ -388,12 +355,9 @@ class TestTensorVar:
             qml.CNOT(wires=[1, 2])
             qml.var(qml.PauliZ(0) @ qml.Hadamard(1) @ qml.PauliY(2))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        tol = 1e-5  # if dev.c_dtype == np.complex64 else 1e-7
+        tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)

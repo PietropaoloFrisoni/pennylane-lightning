@@ -32,9 +32,7 @@ def from_op_to_tensor(op) -> qtn.Tensor:
         ket_inds.append(f"k{i}")
     ket_inds = tuple(ket_inds)
     array = op.matrix()
-    return qtn.Tensor(
-        array.reshape([2] * int(np.log2(array.size))), inds=bra_inds + ket_inds
-    )
+    return qtn.Tensor(array.reshape([2] * int(np.log2(array.size))), inds=bra_inds + ket_inds)
 
 
 def split_tensor(tensor, wires) -> list:
@@ -78,9 +76,7 @@ def from_tensors_to_arrays(tensors, wires, n) -> list:
             newaxes = (1) if c == len(wires) - 1 else ()
         else:
             max_dim = np.max(arrays[-1].shape[0:2])
-            arrays.append(
-                np.einsum("ij,kl->ijkl", np.eye(max_dim, max_dim), np.eye(2, 2))
-            )
+            arrays.append(np.einsum("ij,kl->ijkl", np.eye(max_dim, max_dim), np.eye(2, 2)))
     for _ in range(wires[-1] + 1, n):
         arrays.append(np.einsum("ij,kl->ijkl", np.eye(1, 1), np.eye(2, 2)))
     return arrays

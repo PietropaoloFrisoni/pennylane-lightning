@@ -32,8 +32,7 @@ from pennylane_lightning.lightning_tensor import LightningTensor
 
 @pytest.fixture(params=[np.complex64, np.complex128])
 def dev(request):
-    # return LightningDevice(wires=3, c_dtype=request.param)
-    return LightningTensor(wires=3, backend="quimb", method="mps", c_dtype=request.param)
+    return LightningTensor(wires=3, c_dtype=request.param)
 
 
 def calculate_reference(tape):
@@ -44,11 +43,9 @@ def calculate_reference(tape):
     return transf_fn(results)
 
 
-def process_and_execute(dev, tape):
-    program, _ = dev.preprocess()
-    tapes, transf_fn = program([tape])
-    results = dev.execute(tapes)
-    return transf_fn(results)
+def execute(dev, tape):
+    results = dev.execute(tape)
+    return results
 
 
 @pytest.mark.parametrize("theta, phi", list(zip(THETA, PHI)))
@@ -68,11 +65,7 @@ class TestExpval:
         measurements = [qml.expval(qml.PauliZ(0))]
         tape = qml.tape.QuantumScript(ops, measurements)
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        result = dev.execute(tape)
         expected = np.cos(theta)
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
@@ -85,10 +78,7 @@ class TestExpval:
             [qml.RX(theta, wires=[0]), qml.RX(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.expval(qml.Identity(wires=[0])), qml.expval(qml.Identity(wires=[1]))],
         )
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        result = dev.execute(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
@@ -101,11 +91,7 @@ class TestExpval:
             [qml.RX(theta, wires=[0]), qml.RX(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.expval(qml.Identity(wires=[0, 1]))],
         )
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        result = dev.execute(tape)
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
         assert np.allclose(1.0, result, tol)
@@ -130,16 +116,12 @@ class TestExpval:
             ],
         )
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = np.array([np.cos(theta), np.cos(theta) * np.cos(phi)])
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     @pytest.mark.parametrize(
         "Obs, Op, expected_fn",
@@ -179,11 +161,7 @@ class TestExpval:
             [Op(theta, wires=[0]), Op(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.expval(Obs[0]), qml.expval(Obs[1])],
         )
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        result = execute(dev, tape)
         expected = expected_fn(theta, phi)
 
         assert np.allclose(result, expected, tol)
@@ -199,14 +177,10 @@ class TestExpval:
             for idx in range(3):
                 qml.expval(qml.Hermitian([[1, 0], [0, -1]], wires=[idx]))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_hamiltonian_expectation(self, theta, phi, tol, dev):
         """Tests a Hamiltonian."""
@@ -228,14 +202,37 @@ class TestExpval:
 
             qml.expval(ham)
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
+
+    def test_sparse_hamiltonian_expectation(self, theta, phi, tol, dev):
+        """Tests a Hamiltonian."""
+
+        ham = qml.SparseHamiltonian(
+            qml.Hamiltonian(
+                [1.0, 0.3, 0.3, 0.4],
+                [
+                    qml.PauliX(0) @ qml.PauliX(1),
+                    qml.PauliZ(0),
+                    qml.PauliZ(1),
+                    qml.PauliX(0) @ qml.PauliY(1),
+                ],
+            ).sparse_matrix(),
+            wires=[0, 1],
+        )
+
+        with qml.tape.QuantumTape() as tape:
+            qml.RX(theta, wires=0)
+            qml.RX(phi, wires=1)
+
+            qml.expval(ham)
+
+        calculated_val = execute(dev, tape)
+        reference_val = calculate_reference(tape)
+
+        assert np.allclose(calculated_val, reference_val, tol)
 
 
 @pytest.mark.parametrize("phi", PHI)
@@ -263,16 +260,12 @@ class TestOperatorArithmetic:
             [qml.expval(obs)],
         )
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_integration(self, phi, dev, tol):
         """Test a Combination of `Sum`, `SProd`, and `Prod`."""
@@ -287,16 +280,12 @@ class TestOperatorArithmetic:
             [qml.expval(obs)],
         )
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
 
 @pytest.mark.parametrize("theta, phi, varphi", list(zip(THETA, PHI, VARPHI)))
@@ -314,15 +303,12 @@ class TestTensorExpval:
             qml.CNOT(wires=[1, 2])
             qml.expval(qml.PauliX(0) @ qml.PauliY(2))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_PauliZ_identity(self, theta, phi, varphi, dev, tol):
         """Tests a tensor product involving PauliZ and Identity."""
@@ -336,16 +322,12 @@ class TestTensorExpval:
             qml.CNOT(wires=[1, 2])
             qml.expval(qml.PauliZ(0) @ qml.Identity(1) @ qml.PauliZ(2))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
 
     def test_PauliZ_hadamard_PauliY(self, theta, phi, varphi, dev, tol):
         """Tests a tensor product involving PauliY, PauliZ and Hadamard."""
@@ -358,13 +340,9 @@ class TestTensorExpval:
             qml.CNOT(wires=[1, 2])
             qml.expval(qml.PauliZ(0) @ qml.Hadamard(1) @ qml.PauliY(2))
 
-        devt = LightningTensor(
-            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
-        )
-        result = devt.execute(circuits=tape)
-
+        calculated_val = execute(dev, tape)
         reference_val = calculate_reference(tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
-        assert np.allclose(result, reference_val, tol)
+        assert np.allclose(calculated_val, reference_val, tol)
