@@ -73,7 +73,14 @@ class LightningTensor(Device):
             statistics like expectation values and variances is performed analytically.
         c_dtype: Datatypes for statevector representation. Must be one of
             ``np.complex64`` or ``np.complex128``.
-        **kwargs: keyword arguments.
+        **kwargs: keyword arguments. The following options are currently supported:
+
+            ``max_bond_dim`` (int): Maximum bond dimension for the MPS simulator.
+                It corresponds to the number of Schmidt coefficients retained at the end of the SVD algorithm when applying gates. Default is `None`.
+            ``cutoff`` (float): Truncation threshold for the Schmidt coefficients in a MPS simulator. Default is `1e-16`.
+            ``return_tn`` (bool): Whether to return the tensor network object along with the results of circuit execution. Default is `False`.
+            ``rehearse`` (bool): Whether to rehearse the circuit. If `True`, generate and cache the simplified tensor network and contraction path
+                without performing the contraction. Default is `False`.
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -93,7 +100,6 @@ class LightningTensor(Device):
 
     _new_API = True
 
-    # TODO: decide if `backend` and `method` should be keyword args as well
     # pylint: disable=too-many-arguments
     def __init__(
         self,
@@ -135,7 +141,6 @@ class LightningTensor(Device):
         self._interface = None
         interface_opts = self._setup_execution_config().device_options
 
-        # TODO: implement the remaining interfaces when they will be available
         if self.backend == "quimb" and self.method == "mps":
             self._interface = QuimbMPS(
                 self._num_wires,
@@ -146,7 +151,7 @@ class LightningTensor(Device):
         for arg in kwargs:
             if arg not in self._device_options:
                 raise TypeError(
-                    f"Unexpected argument: {arg} during initialization of lightning.tensor."
+                    f"Unexpected argument: {arg} during initialization of the LightningTensor device."
                 )
 
     @property
@@ -176,7 +181,9 @@ class LightningTensor(Device):
 
     dtype = c_dtype
 
-    def _setup_execution_config(self, config: Optional[ExecutionConfig] = DefaultExecutionConfig):
+    def _setup_execution_config(
+        self, config: Optional[ExecutionConfig] = DefaultExecutionConfig
+    ):
         """
         Update the execution config with choices for how the device should be used and the device options.
         """
@@ -218,7 +225,9 @@ class LightningTensor(Device):
         program = TransformProgram()
 
         program.add_transform(validate_measurements, name=self.name)
-        program.add_transform(validate_observables, accepted_observables, name=self.name)
+        program.add_transform(
+            validate_observables, accepted_observables, name=self.name
+        )
         program.add_transform(validate_device_wires, self.wires, name=self.name)
 
         return program, config

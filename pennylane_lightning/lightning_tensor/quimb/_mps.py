@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Class implementation for MPS manipulation based on the `quimb` Python package.
+Class implementation for the Quimb MPS interface for simulating quantum circuits while keeping the state always in MPS form.
 """
 
 from typing import Callable, Sequence, Union
@@ -55,7 +55,14 @@ def accepted_observables(obs: qml.operation.Operator) -> bool:
 class QuimbMPS:
     """Quimb MPS class.
 
-    Interfaces with `quimb` for MPS manipulation.
+    Used internally by the `LightningTensor` device.
+    Interfaces with `quimb` for MPS manipulation, and provides methods to execute quantum circuits.
+
+    Args:
+        num_wires (int): the number of wires in the circuit.
+        interf_opts (dict): dictionary containing the interface options.
+        dtype (np.dtype): the complex type used for the MPS.
+
     """
 
     def __init__(self, num_wires, interf_opts, dtype=np.complex128):
@@ -96,7 +103,7 @@ class QuimbMPS:
         """Current MPS handled by the interface."""
         return self._circuitMPS.psi
 
-    def _reset_state(self):
+    def _reset_state(self) -> None:
         """Reset the MPS."""
         if self._verbosity:
             print("LOG: resetting the MPS")
@@ -106,7 +113,7 @@ class QuimbMPS:
         """Contract the MPS into a dense array."""
         return self._circuitMPS.to_dense().round(digits)
 
-    def _initial_mps(self):
+    def _initial_mps(self) -> qtn.MatrixProductState:
         r"""
         Returns an initial state to :math:`\ket{0}`.
 
@@ -138,7 +145,7 @@ class QuimbMPS:
         results = []
         for circuit in circuits:
             circuit = circuit.map_to_standard_wires()
-            results.append(self._simulate(circuit))
+            results.append(self.simulate(circuit))
 
         results = tuple(results)
 
@@ -148,7 +155,7 @@ class QuimbMPS:
 
         return results
 
-    def _simulate(self, circuit: QuantumScript) -> Result:
+    def simulate(self, circuit: QuantumScript) -> Result:
         """Simulate a single quantum script. This function assumes that all operations provide matrices.
 
         Args:
@@ -179,7 +186,7 @@ class QuimbMPS:
 
         raise NotImplementedError
 
-    def _apply_operation(self, op: qml.operation.Operator):
+    def _apply_operation(self, op: qml.operation.Operator) -> None:
         """Apply a single operator to the circuit, keeping the state always in a MPS form.
 
         Args:
@@ -195,6 +202,9 @@ class QuimbMPS:
 
         else:
 
+            # If the operation is not a one or two-qubit gate, we need to explicitly convert it to a MPO
+            # and apply it to the MPS of the circuit.
+
             mat_prod_op = from_op_to_mpo(op, self._circuitMPS.psi)
             new_state = mat_prod_op.apply(self._circuitMPS.psi, compress=True)
             self._circuitMPS._psi.__dict__.update(new_state.__dict__)
@@ -205,7 +215,7 @@ class QuimbMPS:
         if self._verbosity:
             print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
 
-    def measurement(self, measurementprocess: MeasurementProcess):
+    def measurement(self, measurementprocess: MeasurementProcess) -> TensorLike:
         """Measure the measurement required by the circuit over the MPS.
 
         Args:
@@ -237,7 +247,7 @@ class QuimbMPS:
 
         raise NotImplementedError
 
-    def expval(self, measurementprocess: MeasurementProcess):
+    def expval(self, measurementprocess: MeasurementProcess) -> float:
         """Expectation value of the supplied observable contained in the MeasurementProcess.
 
         Args:
@@ -254,7 +264,7 @@ class QuimbMPS:
 
         return self._local_expectation(obs.matrix(), tuple(obs.wires))
 
-    def var(self, measurementprocess: MeasurementProcess):
+    def var(self, measurementprocess: MeasurementProcess) -> float:
         """Variance of the supplied observable contained in the MeasurementProcess.
 
         Args:
@@ -276,7 +286,15 @@ class QuimbMPS:
 
         return expectation_squared - np.square(expectation)
 
-    def _local_expectation(self, matrix, wires):
+    def _local_expectation(self, matrix, wires) -> float:
+        """Compute the local expectation value of a matrix on the MPS.
+        Internally, it uses `quimb`'s `local_expectation` method.
+
+        Args:
+            matrix (array): the matrix to compute the expectation value of.
+            wires (tuple[int]): the wires the matrix acts on.
+
+        """
 
         return np.real(
             self._circuitMPS.local_expectation(

@@ -32,7 +32,7 @@ from pennylane_lightning.lightning_tensor import LightningTensor
 
 @pytest.fixture(params=[np.complex64, np.complex128])
 def dev(request):
-    return LightningDevice(wires=3, c_dtype=request.param)
+    # return LightningDevice(wires=3, c_dtype=request.param)
     return LightningTensor(wires=3, backend="quimb", method="mps", c_dtype=request.param)
 
 
@@ -68,7 +68,9 @@ class TestExpval:
         measurements = [qml.expval(qml.PauliZ(0))]
         tape = qml.tape.QuantumScript(ops, measurements)
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         expected = np.cos(theta)
@@ -83,7 +85,9 @@ class TestExpval:
             [qml.RX(theta, wires=[0]), qml.RX(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.expval(qml.Identity(wires=[0])), qml.expval(qml.Identity(wires=[1]))],
         )
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
@@ -97,7 +101,9 @@ class TestExpval:
             [qml.RX(theta, wires=[0]), qml.RX(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.expval(qml.Identity(wires=[0, 1]))],
         )
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
@@ -124,7 +130,9 @@ class TestExpval:
             ],
         )
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = np.array([np.cos(theta), np.cos(theta) * np.cos(phi)])
@@ -171,7 +179,9 @@ class TestExpval:
             [Op(theta, wires=[0]), Op(phi, wires=[1]), qml.CNOT(wires=[0, 1])],
             [qml.expval(Obs[0]), qml.expval(Obs[1])],
         )
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         expected = expected_fn(theta, phi)
@@ -189,7 +199,9 @@ class TestExpval:
             for idx in range(3):
                 qml.expval(qml.Hermitian([[1, 0], [0, -1]], wires=[idx]))
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = calculate_reference(tape)
@@ -216,7 +228,9 @@ class TestExpval:
 
             qml.expval(ham)
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = calculate_reference(tape)
@@ -249,7 +263,9 @@ class TestOperatorArithmetic:
             [qml.expval(obs)],
         )
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = calculate_reference(tape)
@@ -271,7 +287,9 @@ class TestOperatorArithmetic:
             [qml.expval(obs)],
         )
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = calculate_reference(tape)
@@ -296,7 +314,9 @@ class TestTensorExpval:
             qml.CNOT(wires=[1, 2])
             qml.expval(qml.PauliX(0) @ qml.PauliY(2))
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
         reference_val = calculate_reference(tape)
 
@@ -316,7 +336,9 @@ class TestTensorExpval:
             qml.CNOT(wires=[1, 2])
             qml.expval(qml.PauliZ(0) @ qml.Identity(1) @ qml.PauliZ(2))
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = calculate_reference(tape)
@@ -336,7 +358,9 @@ class TestTensorExpval:
             qml.CNOT(wires=[1, 2])
             qml.expval(qml.PauliZ(0) @ qml.Hadamard(1) @ qml.PauliY(2))
 
-        devt = LightningTensor(wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64)
+        devt = LightningTensor(
+            wires=tape.wires, backend="quimb", method="mps", c_dtype=np.complex64
+        )
         result = devt.execute(circuits=tape)
 
         reference_val = calculate_reference(tape)

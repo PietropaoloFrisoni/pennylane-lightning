@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Class implementation for MPS manipulation based on the `quimb` Python package.
+Utility functions for the ``quimb`` interface. These functions are used to convert PennyLane operators into `quimb` tensors and MPOs.
 """
 
 
@@ -20,7 +20,7 @@ import numpy as np
 import quimb.tensor as qtn
 
 
-def from_op_to_tensor(op):
+def from_op_to_tensor(op) -> qtn.Tensor:
     """Returns the Quimb tensor corresponding to a PennyLane operator."""
     wires = tuple(op.wires)
     bra_inds = []
@@ -32,10 +32,12 @@ def from_op_to_tensor(op):
         ket_inds.append(f"k{i}")
     ket_inds = tuple(ket_inds)
     array = op.matrix()
-    return qtn.Tensor(array.reshape([2] * int(np.log2(array.size))), inds=bra_inds + ket_inds)
+    return qtn.Tensor(
+        array.reshape([2] * int(np.log2(array.size))), inds=bra_inds + ket_inds
+    )
 
 
-def split_tensor(tensor, wires):
+def split_tensor(tensor, wires) -> list:
     """Returns the MPO factorization of a given tensor."""
     tensors = []
     v0 = tensor
@@ -53,7 +55,7 @@ def split_tensor(tensor, wires):
     return tensors
 
 
-def shift_tensor_indices(tensors):
+def shift_tensor_indices(tensors) -> None:
     """Shifts the ``bra`` and ``ket`` indices to the right."""
     for t in tensors:
         for side in ["b", "k"]:
@@ -62,7 +64,7 @@ def shift_tensor_indices(tensors):
                     t.moveindex_(ind, -1)
 
 
-def from_tensors_to_arrays(tensors, wires, n):
+def from_tensors_to_arrays(tensors, wires, n) -> list:
     """Converts a list of tensors into arrays that can be fed into ``MatrixProductOperator``."""
     arrays = []
     for _ in range(wires[0]):
@@ -76,24 +78,18 @@ def from_tensors_to_arrays(tensors, wires, n):
             newaxes = (1) if c == len(wires) - 1 else ()
         else:
             max_dim = np.max(arrays[-1].shape[0:2])
-            arrays.append(np.einsum("ij,kl->ijkl", np.eye(max_dim, max_dim), np.eye(2, 2)))
+            arrays.append(
+                np.einsum("ij,kl->ijkl", np.eye(max_dim, max_dim), np.eye(2, 2))
+            )
     for _ in range(wires[-1] + 1, n):
         arrays.append(np.einsum("ij,kl->ijkl", np.eye(1, 1), np.eye(2, 2)))
     return arrays
 
 
-def from_op_to_mpo(op, state):
+def from_op_to_mpo(op, state) -> qtn.MatrixProductOperator:
     """Returns the MPO corresponding to the given operator."""
     wires = tuple(op.wires)
     tensor = from_op_to_tensor(op)
     tensors = split_tensor(tensor, wires)
     arrays = from_tensors_to_arrays(tensors, wires, state.L)
-    return qtn.MatrixProductOperator(
-        arrays,
-        shape="lrud",
-        site_tag_id="I{}",
-        tags=None,
-        upper_ind_id="k{}",
-        lower_ind_id="b{}",
-        bond_name="x{}",
-    )
+    return qtn.MatrixProductOperator(arrays, bond_name="x{}")

@@ -58,15 +58,17 @@ def test_invalid_method(method):
 
 
 def test_invalid_keyword_arg():
-    """Test an invalid method."""
+    """Test an invalid keyword argument."""
     with pytest.raises(
         TypeError,
-        match=f"Unexpected argument: fake_arg during initialization of lightning.tensor.",
+        match=f"Unexpected argument: fake_arg during initialization of the LightningTensor device.",
     ):
         LightningTensor(fake_arg=None)
 
 
 def test_invalid_shots():
     """Test that an error is raised if finite number of shots are requestd."""
-    with pytest.raises(ValueError, match="LightningTensor does not support the `shots` parameter."):
+    with pytest.raises(
+        ValueError, match="LightningTensor does not support the `shots` parameter."
+    ):
         LightningTensor(shots=5)
