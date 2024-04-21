@@ -76,6 +76,7 @@ class QuimbMPS:
 
         self._wires = Wires(range(num_wires))
         self._dtype = dtype
+        self._return_tn = interf_opts["return_tn"]
 
         self._init_state_ops = {
             "binary": "0" * max(1, len(self._wires)),
@@ -96,8 +97,6 @@ class QuimbMPS:
             "simplify_atol": 0.0,
             "rehearse": interf_opts["rehearse"],
         }
-
-        self._return_tn = interf_opts["return_tn"]
 
         self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
@@ -146,6 +145,8 @@ class QuimbMPS:
         for circuit in circuits:
             circuit = circuit.map_to_standard_wires()
             results.append(self.simulate(circuit))
+
+        # TODO: add option for self._return_tn
 
         return tuple(results)
 
@@ -264,11 +265,12 @@ class QuimbMPS:
         obs = measurementprocess.obs
 
         obs_mat = obs.matrix()
-        wires = tuple(obs.wires)
-        expectation_squared = self._local_expectation(np.dot(obs_mat, obs_mat), wires)
-        expectation = self._local_expectation(obs_mat, wires)
+        expect_squar_op = self._local_expectation(
+            np.dot(obs_mat, obs_mat), tuple(obs.wires)
+        )
+        expect_op = self._local_expectation(obs_mat, tuple(obs.wires))
 
-        return expectation_squared - np.square(expectation)
+        return expect_squar_op - np.square(expect_op)
 
     def _local_expectation(self, matrix, wires) -> float:
         """Compute the local expectation value of a matrix on the MPS.
