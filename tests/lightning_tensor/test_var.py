@@ -134,9 +134,7 @@ class TestVar:
             (
                 [qml.PauliY(wires=[0]), qml.PauliY(wires=[1])],
                 qml.RX,
-                lambda theta, phi: np.array(
-                    [1, 1 - np.cos(theta) ** 2 * np.sin(phi) ** 2]
-                ),
+                lambda theta, phi: np.array([1, 1 - np.cos(theta) ** 2 * np.sin(phi) ** 2]),
             ),
             (
                 [qml.PauliZ(wires=[0]), qml.PauliZ(wires=[1])],
@@ -157,9 +155,7 @@ class TestVar:
             ),
         ],
     )
-    def test_single_wire_observables_variance(
-        self, Obs, Op, expected_fn, theta, phi, dev
-    ):
+    def test_single_wire_observables_variance(self, Obs, Op, expected_fn, theta, phi, dev):
         """Test that variance values for single wire observables are correct"""
 
         tape = qml.tape.QuantumScript(

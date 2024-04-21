@@ -11,9 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """
 This module contains the LightningTensor class that inherits from the new device interface.
+It is a device to perform tensor network operations on a quantum circuit. 
 """
+
+
 from dataclasses import replace
 from numbers import Number
 from typing import Callable, Optional, Sequence, Tuple, Union
@@ -263,7 +267,7 @@ class LightningTensor(Device):
 
         """
         # TODO: implement during next quarter
-        return False
+        return False  # pragma: no cover
 
     def compute_derivatives(
         self,
@@ -281,7 +285,7 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of derivatives has yet to be implemented for the lightning.tensor device."
-        )
+        )  # pragma: no cover
 
     def execute_and_compute_derivatives(
         self,
@@ -299,7 +303,7 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of derivatives has yet to be implemented for the lightning.tensor device."
-        )
+        )  # pragma: no cover
 
     def supports_vjp(
         self,
@@ -315,9 +319,8 @@ class LightningTensor(Device):
         Returns:
             Bool: Whether or not a derivative can be calculated provided the given information.
         """
-        raise NotImplementedError(
-            "The computation of derivatives has yet to be implemented for the lightning.tensor device."
-        )
+        # TODO: implement during next quarter
+        return False  # pragma: no cover
 
     def compute_vjp(
         self,
@@ -339,7 +342,7 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of vector jacobian product has yet to be implemented for the lightning.tensor device."
-        )
+        )  # pragma: no cover
 
     def execute_and_compute_vjp(
         self,
@@ -360,4 +363,4 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of vector jacobian product has yet to be implemented for the lightning.tensor device."
-        )
+        )  # pragma: no cover

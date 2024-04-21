@@ -35,21 +35,21 @@ PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 # TODO: understand if supporting all operations and observables is feasible for the first release
 
-_operations = frozenset({})
+_operations = frozenset({})  # pragma: no cover
 # The set of supported operations.
 
-_observables = frozenset({})
+_observables = frozenset({})  # pragma: no cover
 # The set of supported observables.
 
 
 def stopping_condition(op: qml.operation.Operator) -> bool:
     """A function that determines if an operation is supported by ``lightning.tensor`` for this interface."""
-    return op.name in _operations
+    return op.name in _operations  # pragma: no cover
 
 
 def accepted_observables(obs: qml.operation.Operator) -> bool:
     """A function that determines if an observable is supported by ``lightning.tensor`` for this interface."""
-    return obs.name in _observables
+    return obs.name in _observables  # pragma: no cover
 
 
 class QuimbMPS:
@@ -117,8 +117,10 @@ class QuimbMPS:
         r"""
         Returns an initial state to :math:`\ket{0}`.
 
+        Internally, it uses `quimb`'s `MPS_computational_state` method.
+
         Returns:
-            array: The initial MPS of a circuit.
+            MatrixProductState: The initial MPS of a circuit.
         """
 
         return qtn.MPS_computational_state(**self._init_state_ops)
@@ -188,6 +190,9 @@ class QuimbMPS:
 
     def _apply_operation(self, op: qml.operation.Operator) -> None:
         """Apply a single operator to the circuit, keeping the state always in a MPS form.
+
+        Internally it uses `quimb`'s `apply_gate` method for one and two-qubit gates.
+        For operations that act on more than two wires, it converts the operation to a MPO and applies it to the MPS.
 
         Args:
             op (Operator): The operation to apply.
@@ -288,6 +293,7 @@ class QuimbMPS:
 
     def _local_expectation(self, matrix, wires) -> float:
         """Compute the local expectation value of a matrix on the MPS.
+
         Internally, it uses `quimb`'s `local_expectation` method.
 
         Args:
