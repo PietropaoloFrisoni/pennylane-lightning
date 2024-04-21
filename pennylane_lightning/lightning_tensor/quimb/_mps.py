@@ -67,7 +67,6 @@ class QuimbMPS:
         num_wires (int): the number of wires in the circuit.
         interf_opts (dict): dictionary containing the interface options.
         dtype (np.dtype): the complex type used for the MPS.
-
     """
 
     def __init__(self, num_wires, interf_opts, dtype=np.complex128):
