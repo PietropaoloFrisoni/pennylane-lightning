@@ -21,7 +21,12 @@ import pennylane as qml
 import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
+from pennylane.measurements import (
+    ExpectationMP,
+    MeasurementProcess,
+    StateMeasurement,
+    VarianceMP,
+)
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
@@ -72,7 +77,6 @@ class QuimbMPS:
 
         self._wires = Wires(range(num_wires))
         self._dtype = dtype
-        self._verbosity = True
 
         self._init_state_ops = {
             "binary": "0" * max(1, len(self._wires)),
@@ -105,8 +109,6 @@ class QuimbMPS:
 
     def _reset_state(self) -> None:
         """Reset the MPS."""
-        if self._verbosity:
-            print("LOG: resetting the MPS")
         self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
     def state_to_array(self, digits: int = 5):
@@ -141,21 +143,12 @@ class QuimbMPS:
             TensorLike, tuple[TensorLike], tuple[tuple[TensorLike]]: A numeric result of the computation.
         """
 
-        if self._verbosity:
-            print(f"LOG: execute called with:\ncircuits={circuits}\n")
-
         results = []
         for circuit in circuits:
             circuit = circuit.map_to_standard_wires()
             results.append(self.simulate(circuit))
 
-        results = tuple(results)
-
-        if self._verbosity:
-            print(f"\nLOG: execute results={results}\n")
-            print(f"LOG: MPS after execution:\n{self._circuitMPS.psi}")
-
-        return results
+        return tuple(results)
 
     def simulate(self, circuit: QuantumScript) -> Result:
         """Simulate a single quantum script. This function assumes that all operations provide matrices.
@@ -165,7 +158,6 @@ class QuimbMPS:
 
         Returns:
             Tuple[TensorLike]: The results of the simulation.
-
         """
 
         self._reset_state()
@@ -198,9 +190,6 @@ class QuimbMPS:
             op (Operator): The operation to apply.
         """
 
-        if self._verbosity:
-            print(f"\nLOG: applying {op} to the circuit...")
-
         if len(op.wires) <= 2:
 
             self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
@@ -216,9 +205,6 @@ class QuimbMPS:
 
             gate = qtn.circuit.parse_to_gate(op.matrix(), tuple(op.wires))
             self._circuitMPS.gates.append(gate)
-
-        if self._verbosity:
-            print(f"LOG: MPS after operation:\n{self._circuitMPS.psi}")
 
     def measurement(self, measurementprocess: MeasurementProcess) -> TensorLike:
         """Measure the measurement required by the circuit over the MPS.
@@ -264,9 +250,6 @@ class QuimbMPS:
 
         obs = measurementprocess.obs
 
-        if self._verbosity:
-            print(f"\nLOG: measuring the expval of obs {obs}...")
-
         return self._local_expectation(obs.matrix(), tuple(obs.wires))
 
     def var(self, measurementprocess: MeasurementProcess) -> float:
@@ -280,9 +263,6 @@ class QuimbMPS:
         """
 
         obs = measurementprocess.obs
-
-        if self._verbosity:
-            print(f"\nLOG: measuring the var of obs {obs}...")
 
         obs_mat = obs.matrix()
         wires = tuple(obs.wires)
@@ -300,6 +280,8 @@ class QuimbMPS:
             matrix (array): the matrix to compute the expectation value of.
             wires (tuple[int]): the wires the matrix acts on.
 
+        Returns:
+            Local expectation value of the matrix on the MPS.
         """
 
         return np.real(
