@@ -21,12 +21,7 @@ import pennylane as qml
 import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.measurements import (
-    ExpectationMP,
-    MeasurementProcess,
-    StateMeasurement,
-    VarianceMP,
-)
+from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
@@ -265,9 +260,7 @@ class QuimbMPS:
         obs = measurementprocess.obs
 
         obs_mat = obs.matrix()
-        expect_squar_op = self._local_expectation(
-            np.dot(obs_mat, obs_mat), tuple(obs.wires)
-        )
+        expect_squar_op = self._local_expectation(np.dot(obs_mat, obs_mat), tuple(obs.wires))
         expect_op = self._local_expectation(obs_mat, tuple(obs.wires))
 
         return expect_squar_op - np.square(expect_op)
