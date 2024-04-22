@@ -46,7 +46,7 @@ def split_tensor(tensor, wires) -> list:
         if c > 0:
             inds.append(v0.inds[0])
         inds = tuple(inds)
-        u0, v0 = v0.split(inds, cutoff=0.0)
+        u0, v0 = v0.split(inds, method="lu", cutoff=0.0)
         tensors.append(u0)
     tensors.append(v0)
     shift_tensor_indices(tensors)
