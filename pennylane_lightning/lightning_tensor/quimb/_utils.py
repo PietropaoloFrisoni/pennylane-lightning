@@ -31,11 +31,11 @@ def from_op_to_tensor(op) -> qtn.Tensor:
     for _, i in enumerate(wires):
         ket_inds.append(f"k{i}")
     ket_inds = tuple(ket_inds)
-    array = op.matrix()
+    array = op.matrix().astype(np.float64)
     return qtn.Tensor(array.reshape([2] * int(np.log2(array.size))), inds=bra_inds + ket_inds)
 
 
-def split_tensor(tensor, wires) -> list:
+def split_tensor(tensor, wires, gate_opts) -> list:
     """Returns the MPO factorization of a given tensor."""
     tensors = []
     v0 = tensor
@@ -46,7 +46,12 @@ def split_tensor(tensor, wires) -> list:
         if c > 0:
             inds.append(v0.inds[0])
         inds = tuple(inds)
-        u0, v0 = v0.split(inds, method="lu", cutoff=0.0)
+        u0, v0 = v0.split(
+            inds,
+            method="svd",
+            max_bond=gate_opts["max_bond"],
+            cutoff=gate_opts["cutoff"],
+        )
         tensors.append(u0)
     tensors.append(v0)
     shift_tensor_indices(tensors)
@@ -82,10 +87,10 @@ def from_tensors_to_arrays(tensors, wires, n) -> list:
     return arrays
 
 
-def from_op_to_mpo(op, state) -> qtn.MatrixProductOperator:
+def from_op_to_mpo(op, state, gate_opts) -> qtn.MatrixProductOperator:
     """Returns the MPO corresponding to the given operator."""
     wires = tuple(op.wires)
     tensor = from_op_to_tensor(op)
-    tensors = split_tensor(tensor, wires)
+    tensors = split_tensor(tensor, wires, gate_opts)
     arrays = from_tensors_to_arrays(tensors, wires, state.L)
-    return qtn.MatrixProductOperator(arrays, bond_name="x{}")
+    return qtn.MatrixProductOperator(arrays)  # , bond_name="x{}")

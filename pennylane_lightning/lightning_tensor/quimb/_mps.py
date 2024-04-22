@@ -194,8 +194,13 @@ class QuimbMPS:
             # If the operation is not a one or two-qubit gate, we need to explicitly convert it to a MPO
             # and apply it to the MPS of the circuit.
 
-            mat_prod_op = from_op_to_mpo(op, self._circuitMPS.psi)
-            new_state = mat_prod_op.apply(self._circuitMPS.psi, compress=True)
+            mat_prod_op = from_op_to_mpo(op, self._circuitMPS.psi, self._gate_opts)
+            new_state = mat_prod_op.apply(
+                self._circuitMPS.psi,
+                compress=True,
+                max_bond=self._gate_opts["max_bond"],
+                cutoff=self._gate_opts["cutoff"],
+            )
             self._circuitMPS._psi.__dict__.update(new_state.__dict__)
 
             gate = qtn.circuit.parse_to_gate(op.matrix(), tuple(op.wires))
