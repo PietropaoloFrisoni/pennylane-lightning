@@ -93,4 +93,4 @@ def from_op_to_mpo(op, state, gate_opts) -> qtn.MatrixProductOperator:
     tensor = from_op_to_tensor(op)
     tensors = split_tensor(tensor, wires, gate_opts)
     arrays = from_tensors_to_arrays(tensors, wires, state.L)
-    return qtn.MatrixProductOperator(arrays)  # , bond_name="x{}")
+    return qtn.MatrixProductOperator(arrays)

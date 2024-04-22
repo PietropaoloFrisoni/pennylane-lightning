@@ -15,6 +15,7 @@
 Class implementation for the Quimb MPS interface for simulating quantum circuits while keeping the state always in MPS form.
 """
 
+import copy
 from typing import Callable, Sequence, Union
 
 import pennylane as qml
@@ -250,7 +251,9 @@ class QuimbMPS:
 
         obs = measurementprocess.obs
 
-        return self._local_expectation(obs.matrix(), tuple(obs.wires))
+        result = self._local_expectation(obs.matrix(), tuple(obs.wires))
+
+        return result
 
     def var(self, measurementprocess: MeasurementProcess) -> float:
         """Variance of the supplied observable contained in the MeasurementProcess.
@@ -283,8 +286,11 @@ class QuimbMPS:
             Local expectation value of the matrix on the MPS.
         """
 
+        # We need to copy the MPS to avoid modifying the original state
+        qc = copy.deepcopy(self._circuitMPS)
+
         return np.real(
-            self._circuitMPS.local_expectation(
+            qc.local_expectation(
                 matrix,
                 wires,
                 **self._expval_opts,
