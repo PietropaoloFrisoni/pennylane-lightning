@@ -94,8 +94,6 @@ ops = {
     "SingleExcitationPlus": qml.SingleExcitationPlus(0, wires=[0, 1]),
     "SingleExcitationMinus": qml.SingleExcitationMinus(0, wires=[0, 1]),
     "DoubleExcitation": qml.DoubleExcitation(0, wires=[0, 1, 2, 3]),
-    # "DoubleExcitationPlus": qml.DoubleExcitationPlus(0, wires=[0, 1, 2, 3]),
-    # "DoubleExcitationMinus": qml.DoubleExcitationMinus(0, wires=[0, 1, 2, 3]),
     "QubitCarry": qml.QubitCarry(wires=[0, 1, 2, 3]),
     "QubitSum": qml.QubitSum(wires=[0, 1, 2]),
     "PauliRot": qml.PauliRot(0, "XXYY", wires=[0, 1, 2, 3]),
@@ -183,7 +181,6 @@ class TestSupportedGates:
         )
 
         result = dev.execute(circuits=tape)
-
         assert np.allclose(result, 1.0)
 
 
@@ -216,5 +213,4 @@ class TestSupportedObservables:
                 [qml.expval(obs[observable])],
             )
             result = dev.execute(circuits=tape)
-
             assert isinstance(result, (float, np.ndarray))

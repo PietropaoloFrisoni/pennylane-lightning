@@ -27,6 +27,7 @@ import pennylane as qml
 from pennylane.devices import DefaultExecutionConfig, Device, ExecutionConfig
 from pennylane.devices.modifiers import simulator_tracking, single_tape_support
 from pennylane.devices.preprocess import (
+    decompose,
     validate_device_wires,
     validate_measurements,
     validate_observables,
@@ -80,11 +81,11 @@ class LightningTensor(Device):
         **kwargs: keyword arguments. The following options are currently supported:
 
             ``max_bond_dim`` (int): Maximum bond dimension for the MPS simulator.
-                It corresponds to the number of Schmidt coefficients retained at the end of the SVD algorithm when applying gates. Default is `None`.
-            ``cutoff`` (float): Truncation threshold for the Schmidt coefficients in a MPS simulator. Default is `1e-16`.
-            ``return_tn`` (bool): Whether to return the tensor network object along with the results of circuit execution. Default is `False`.
-            ``rehearse`` (bool): Whether to rehearse the circuit. If `True`, generate and cache the simplified tensor network and contraction path
-                without performing the contraction. Default is `False`.
+                It corresponds to the number of Schmidt coefficients retained at the end of the SVD algorithm when applying gates. Default is ``None``.
+            ``cutoff`` (float): Truncation threshold for the Schmidt coefficients in a MPS simulator. Default is ``1e-16``.
+            ``return_tn`` (bool): Whether to return the tensor network object along with the results of circuit execution. Default is ``False``.
+            ``rehearse`` (bool): Whether to rehearse the circuit. If ``True``, generate and cache the simplified tensor network and contraction path
+                without performing the contraction. Default is ``False``.
     """
 
     # pylint: disable=too-many-instance-attributes
@@ -232,6 +233,13 @@ class LightningTensor(Device):
         program.add_transform(validate_measurements, name=self.name)
         program.add_transform(validate_observables, accepted_observables, name=self.name)
         program.add_transform(validate_device_wires, self.wires, name=self.name)
+        program.add_transform(
+            decompose,
+            stopping_condition=stopping_condition,
+            skip_initial_state_prep=True,
+            name=self.name,
+        )
+        program.add_transform(qml.transforms.broadcast_expand)
 
         return program, config
 
