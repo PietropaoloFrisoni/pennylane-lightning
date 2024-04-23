@@ -102,7 +102,7 @@ class TestVar:
     )
     def test_custom_wires(self, theta, phi, wires):
         """Tests custom wires."""
-        device = LightningDevice(wires=wires)
+        device = LightningTensor(wires=wires, c_dtype=np.complex128)
 
         tape = qml.tape.QuantumScript(
             [

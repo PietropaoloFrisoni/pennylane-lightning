@@ -146,39 +146,6 @@ if not set(all_obs) == all_available_obs | {"LinearCombination"}:
     )
 
 
-class TestSupportedObservables:
-    """Test that the device can implement all observables that it supports."""
-
-    @pytest.mark.parametrize("observable", all_obs)
-    def test_supported_observables_can_be_implemented(self, observable):
-        """Test that the device can implement all its supported observables."""
-        dev = LightningTensor(
-            wires=Wires(range(3)), backend="quimb", method="mps", c_dtype=np.complex64
-        )
-
-        if dev.shots and observable == "SparseHamiltonian":
-            pytest.skip("SparseHamiltonian only supported in analytic mode")
-
-        if observable == "Projector":
-            for o in obs[observable]:
-                tape = qml.tape.QuantumScript(
-                    [qml.PauliX(0)],
-                    [qml.expval(o)],
-                )
-                result = dev.execute(circuits=tape)
-                assert isinstance(result, (float, np.ndarray))
-
-        else:
-
-            tape = qml.tape.QuantumScript(
-                [qml.PauliX(0)],
-                [qml.expval(obs[observable])],
-            )
-            result = dev.execute(circuits=tape)
-
-            assert isinstance(result, (float, np.ndarray))
-
-
 @pytest.mark.parametrize("backend", ["quimb"])
 @pytest.mark.parametrize("method", ["mps"])
 class TestQuimbMPS:
@@ -210,10 +177,6 @@ class TestSupportedGates:
             wires=Wires(range(4)), backend="quimb", method="mps", c_dtype=np.complex64
         )
 
-        if not ops[operation].has_matrix:
-            print(ops[operation])
-            assert False
-
         tape = qml.tape.QuantumScript(
             [ops[operation]],
             [qml.expval(qml.Identity(wires=0))],
@@ -222,3 +185,36 @@ class TestSupportedGates:
         result = dev.execute(circuits=tape)
 
         assert np.allclose(result, 1.0)
+
+
+class TestSupportedObservables:
+    """Test that the device can implement all observables that it supports."""
+
+    @pytest.mark.parametrize("observable", all_obs)
+    def test_supported_observables_can_be_implemented(self, observable):
+        """Test that the device can implement all its supported observables."""
+        dev = LightningTensor(
+            wires=Wires(range(3)), backend="quimb", method="mps", c_dtype=np.complex64
+        )
+
+        if dev.shots and observable == "SparseHamiltonian":
+            pytest.skip("SparseHamiltonian only supported in analytic mode")
+
+        if observable == "Projector":
+            for o in obs[observable]:
+                tape = qml.tape.QuantumScript(
+                    [qml.PauliX(0)],
+                    [qml.expval(o)],
+                )
+                result = dev.execute(circuits=tape)
+                assert isinstance(result, (float, np.ndarray))
+
+        else:
+
+            tape = qml.tape.QuantumScript(
+                [qml.PauliX(0)],
+                [qml.expval(obs[observable])],
+            )
+            result = dev.execute(circuits=tape)
+
+            assert isinstance(result, (float, np.ndarray))
