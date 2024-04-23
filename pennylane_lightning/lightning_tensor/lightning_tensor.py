@@ -219,7 +219,8 @@ class LightningTensor(Device):
 
         This device:
 
-        * Supports any qubit operations that provide a matrix.
+        * Supports any one or two-qubit operations that provide a matrix.
+        * Supports any three or four-qubit operations that provide a decomposition method.
         * Currently does not support finite shots.
 
         """

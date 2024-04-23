@@ -22,12 +22,7 @@ import pennylane as qml
 import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.measurements import (
-    ExpectationMP,
-    MeasurementProcess,
-    StateMeasurement,
-    VarianceMP,
-)
+from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
@@ -38,6 +33,26 @@ Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
 QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
+
+
+def decompose_recursive(op: qml.operation.Operator) -> list:
+    """Decompose a Pennylane operation into a list of operations with at most 2 wires.
+
+    Args:
+        op (Operator): the operation to decompose.
+
+    Returns:
+        list[Operator]: a list of operations with at most 2 wires.
+    """
+
+    if len(op.wires) <= 2:
+        return [op]
+
+    decomposed_ops = []
+    for sub_op in op.decomposition():
+        decomposed_ops.extend(decompose_recursive(sub_op))
+
+    return decomposed_ops
 
 
 _operations = frozenset(
@@ -101,8 +116,6 @@ _operations = frozenset(
         "C(SingleExcitationMinus)",
         "C(SingleExcitationPlus)",
         "C(DoubleExcitation)",
-        "C(DoubleExcitationMinus)",
-        "C(DoubleExcitationPlus)",
         "C(MultiRZ)",
         "C(GlobalPhase)",
         "CRot",
@@ -114,8 +127,6 @@ _operations = frozenset(
         "SingleExcitationPlus",
         "SingleExcitationMinus",
         "DoubleExcitation",
-        "DoubleExcitationPlus",
-        "DoubleExcitationMinus",
         "QubitCarry",
         "QubitSum",
         "OrbitalRotation",
@@ -202,30 +213,33 @@ class QuimbMPS:
         self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
     @property
-    def state(self):
-        """Current MPS handled by the interface."""
+    def state(self) -> qtn.MatrixProductState:
+        """Return the current MPS handled by the interface."""
         return self._circuitMPS.psi
+
+    def state_to_array(self, digits: int = 5) -> np.ndarray:
+        """Contract the MPS into a dense array and round the values."""
+        return self._circuitMPS.to_dense().round(digits)
+
+    def draw_state(self) -> None:
+        """Draw the MPS."""
+        self._circuitMPS.psi.draw(
+            color=[f"I{q}" for q in range(len(self._wires))], show_tags=False, show_inds=True
+        )
 
     def _reset_state(self) -> None:
         """Reset the MPS."""
         self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
-    def state_to_array(self, digits: int = 5):
-        """Contract the MPS into a dense array."""
-        # We need to copy the MPS to avoid modifying the original state
-        qc = copy.deepcopy(self._circuitMPS)
-        return qc.to_dense().round(digits)
-
     def _initial_mps(self) -> qtn.MatrixProductState:
-        r"""
-        Returns an initial state to :math:`\ket{0}`.
+        """
+        Return an initial state |0⟩.
 
         Internally, it uses `quimb`'s `MPS_computational_state` method.
 
         Returns:
             MatrixProductState: The initial MPS of a circuit.
         """
-
         return qtn.MPS_computational_state(**self._init_state_ops)
 
     # pylint: disable=unused-argument
@@ -286,57 +300,19 @@ class QuimbMPS:
     def _apply_operation(self, op: qml.operation.Operator) -> None:
         """Apply a single operator to the circuit, keeping the state always in a MPS form.
 
-        Internally it uses `quimb`'s `apply_gate` method for one and two-qubit gates.
-        For operations that act on more than two wires, it converts the operation to a MPO and applies it to the MPS.
+        Internally it uses `quimb`'s `apply_gate` method. For operations that act on more than two wires,
+        it decomposes them first into operations that act on at most two wires.
 
         Args:
             op (Operator): The operation to apply.
         """
 
         if len(op.wires) <= 2:
-
             self._circuitMPS.apply_gate(op.matrix(), *op.wires, **self._gate_opts)
-
         else:
-
-            # If the operation is not a one or two-qubit gate, we need to explicitly convert it to a MPO
-            # and apply it to the MPS of the circuit.
-
-            mat_prod_op = from_op_to_mpo(op, self._circuitMPS.psi, self._gate_opts)
-            new_state = mat_prod_op.apply(
-                self._circuitMPS.psi,
-                compress=True,
-                max_bond=self._gate_opts["max_bond"],
-                cutoff=self._gate_opts["cutoff"],
-            )
-            self._circuitMPS._psi.__dict__.update(new_state.__dict__)
-
-            # We also add the gate to the list of gates in the circuit.
-
-            gate = qtn.circuit.parse_to_gate(op.matrix(), tuple(op.wires))
-            self._circuitMPS.gates.append(gate)
-
-        # else:
-
-        #    decom_ops = op.decomposition()
-
-        #    for op in decom_ops:
-
-        #        if len(op.wires) <= 2:
-
-        #            self._circuitMPS.apply_gate(
-        #                op.matrix(), *op.wires, **self._gate_opts
-        #            )
-
-        #        else:
-
-        #            decom_ops = op.decomposition()
-
-        #            for op in decom_ops:
-
-        #                self._circuitMPS.apply_gate(
-        #                    op.matrix(), *op.wires, **self._gate_opts
-        #                )
+            decom_ops = decompose_recursive(op)
+            for o in decom_ops:
+                self._circuitMPS.apply_gate(o.matrix(), *o.wires, **self._gate_opts)
 
     def measurement(self, measurementprocess: MeasurementProcess) -> TensorLike:
         """Measure the measurement required by the circuit over the MPS.
@@ -399,9 +375,7 @@ class QuimbMPS:
         obs = measurementprocess.obs
 
         obs_mat = obs.matrix()
-        expect_squar_op = self._local_expectation(
-            np.dot(obs_mat, obs_mat), tuple(obs.wires)
-        )
+        expect_squar_op = self._local_expectation(np.dot(obs_mat, obs_mat), tuple(obs.wires))
         expect_op = self._local_expectation(obs_mat, tuple(obs.wires))
 
         return expect_squar_op - np.square(expect_op)
