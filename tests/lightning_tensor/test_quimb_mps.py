@@ -32,6 +32,8 @@ from pennylane_lightning.lightning_tensor import LightningTensor
 # if LightningDevice._CPP_BINARY_AVAILABLE:
 #    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
 
+THETA = np.linspace(0.11, 1, 3)
+PHI = np.linspace(0.32, 1, 3)
 
 # gates for which device support is tested
 ops = {
@@ -143,36 +145,6 @@ if not set(all_obs) == all_available_obs | {"LinearCombination"}:
         "pennylane/devices/tests/test_measurements.py"
     )
 
-# single qubit Hermitian observable
-A = np.array([[1.02789352, 1.61296440 - 0.3498192j], [1.61296440 + 0.3498192j, 1.23920938 + 0j]])
-
-obs_lst = [
-    qml.X(0) @ qml.Y(1),
-    qml.X(1) @ qml.Y(0),
-    qml.X(1) @ qml.Z(2),
-    qml.X(2) @ qml.Z(1),
-    qml.Identity(wires=0) @ qml.Identity(wires=1) @ qml.Z(2),
-    qml.Z(0) @ qml.X(1) @ qml.Y(2),
-]
-
-obs_permuted_lst = [
-    qml.Y(1) @ qml.X(0),
-    qml.Y(0) @ qml.X(1),
-    qml.Z(2) @ qml.X(1),
-    qml.Z(1) @ qml.X(2),
-    qml.Z(2) @ qml.Identity(wires=0) @ qml.Identity(wires=1),
-    qml.X(1) @ qml.Y(2) @ qml.Z(0),
-]
-
-label_maps = [[0, 1, 2], ["a", "b", "c"], ["beta", "alpha", "gamma"], [3, "beta", "a"]]
-
-
-def sub_routine(label_map):
-    """Quantum function to initalize state in tests"""
-    qml.Hadamard(wires=label_map[0])
-    qml.RX(0.12, wires=label_map[1])
-    qml.RY(3.45, wires=label_map[2])
-
 
 class TestSupportedObservables:
     """Test that the device can implement all observables that it supports."""
@@ -187,43 +159,24 @@ class TestSupportedObservables:
         if dev.shots and observable == "SparseHamiltonian":
             pytest.skip("SparseHamiltonian only supported in analytic mode")
 
-        tape = qml.tape.QuantumScript(
-            [qml.PauliX(0)],
-            [qml.expval(obs[observable])],
-        )
-        result = dev.execute(circuits=tape)
-
-        print(result)
-        print(type(result))
-
         if observable == "Projector":
             for o in obs[observable]:
+                tape = qml.tape.QuantumScript(
+                    [qml.PauliX(0)],
+                    [qml.expval(o)],
+                )
+                result = dev.execute(circuits=tape)
                 assert isinstance(result, (float, np.ndarray))
+
         else:
+
+            tape = qml.tape.QuantumScript(
+                [qml.PauliX(0)],
+                [qml.expval(obs[observable])],
+            )
+            result = dev.execute(circuits=tape)
+
             assert isinstance(result, (float, np.ndarray))
-
-    # def test_tensor_observables_can_be_implemented(self, device_kwargs):
-    #    """Test that the device can implement a simple tensor observable.
-    #    This test is skipped for devices that do not support tensor observables."""
-    #    device_kwargs["wires"] = 2
-    #    dev = qml.device(**device_kwargs)
-    #    supports_tensor = isinstance(dev, qml.devices.Device) or (
-    #        "supports_tensor_observables" in dev.capabilities()
-    #        and dev.capabilities()["supports_tensor_observables"]
-    #    )
-    #    if not supports_tensor:
-    #        pytest.skip("Device does not support tensor observables.")
-
-    #    @qml.qnode(dev)
-    #    def circuit():
-    #        qml.PauliX(0)
-    #        return qml.expval(qml.Identity(wires=0) @ qml.Identity(wires=1))
-
-    #    assert isinstance(circuit(), (float, np.ndarray))
-
-
-THETA = np.linspace(0.11, 1, 3)
-PHI = np.linspace(0.32, 1, 3)
 
 
 @pytest.mark.parametrize("backend", ["quimb"])
@@ -256,18 +209,6 @@ class TestSupportedGates:
         dev = LightningTensor(
             wires=Wires(range(4)), backend="quimb", method="mps", c_dtype=np.complex64
         )
-
-        # if isinstance(dev, qml.Device):
-        #    if operation not in dev.operations:
-        #        pytest.skip("operation not supported.")
-        # else:
-        #    if ops[operation].name == "QubitDensityMatrix":
-        #        prog = dev.preprocess()[0]
-        #        tape = qml.tape.QuantumScript([ops[operation]])
-        #        try:
-        #            prog((tape,))
-        #        except qml.DeviceError:
-        #            pytest.skip("operation not supported on the device")
 
         if not ops[operation].has_matrix:
             print(ops[operation])
