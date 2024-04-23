@@ -31,7 +31,7 @@ def from_op_to_tensor(op) -> qtn.Tensor:
     for _, i in enumerate(wires):
         ket_inds.append(f"k{i}")
     ket_inds = tuple(ket_inds)
-    array = op.matrix().astype(np.float64)
+    array = op.matrix().astype(np.complex128)
     return qtn.Tensor(array.reshape([2] * int(np.log2(array.size))), inds=bra_inds + ket_inds)
 
 

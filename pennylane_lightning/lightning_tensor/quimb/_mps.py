@@ -22,7 +22,12 @@ import pennylane as qml
 import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
+from pennylane.measurements import (
+    ExpectationMP,
+    MeasurementProcess,
+    StateMeasurement,
+    VarianceMP,
+)
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
@@ -34,12 +39,112 @@ QuantumTapeBatch = Sequence[QuantumTape]
 QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
-# TODO: understand if supporting all operations and observables is feasible for the first release
 
-_operations = frozenset({})  # pragma: no cover
+_operations = frozenset(
+    {
+        "Identity",
+        "QubitUnitary",
+        "ControlledQubitUnitary",
+        "MultiControlledX",
+        "DiagonalQubitUnitary",
+        "PauliX",
+        "PauliY",
+        "PauliZ",
+        "MultiRZ",
+        "GlobalPhase",
+        "Hadamard",
+        "S",
+        "Adjoint(S)",
+        "T",
+        "Adjoint(T)",
+        "SX",
+        "Adjoint(SX)",
+        "CNOT",
+        "SWAP",
+        "ISWAP",
+        "PSWAP",
+        "Adjoint(ISWAP)",
+        "SISWAP",
+        "Adjoint(SISWAP)",
+        "SQISW",
+        "CSWAP",
+        "Toffoli",
+        "CY",
+        "CZ",
+        "PhaseShift",
+        "ControlledPhaseShift",
+        "CPhase",
+        "RX",
+        "RY",
+        "RZ",
+        "Rot",
+        "CRX",
+        "CRY",
+        "CRZ",
+        "C(PauliX)",
+        "C(PauliY)",
+        "C(PauliZ)",
+        "C(Hadamard)",
+        "C(S)",
+        "C(T)",
+        "C(PhaseShift)",
+        "C(RX)",
+        "C(RY)",
+        "C(RZ)",
+        "C(Rot)",
+        "C(SWAP)",
+        "C(IsingXX)",
+        "C(IsingXY)",
+        "C(IsingYY)",
+        "C(IsingZZ)",
+        "C(SingleExcitation)",
+        "C(SingleExcitationMinus)",
+        "C(SingleExcitationPlus)",
+        "C(DoubleExcitation)",
+        "C(DoubleExcitationMinus)",
+        "C(DoubleExcitationPlus)",
+        "C(MultiRZ)",
+        "C(GlobalPhase)",
+        "CRot",
+        "IsingXX",
+        "IsingYY",
+        "IsingZZ",
+        "IsingXY",
+        "SingleExcitation",
+        "SingleExcitationPlus",
+        "SingleExcitationMinus",
+        "DoubleExcitation",
+        "DoubleExcitationPlus",
+        "DoubleExcitationMinus",
+        "QubitCarry",
+        "QubitSum",
+        "OrbitalRotation",
+        "QFT",
+        "ECR",
+        "BlockEncode",
+    }
+)  # pragma: no cover
 # The set of supported operations.
 
-_observables = frozenset({})  # pragma: no cover
+
+_observables = frozenset(
+    {
+        "PauliX",
+        "PauliY",
+        "PauliZ",
+        "Hadamard",
+        "Hermitian",
+        "Identity",
+        "Projector",
+        "SparseHamiltonian",
+        "Hamiltonian",
+        "LinearCombination",
+        "Sum",
+        "SProd",
+        "Prod",
+        "Exp",
+    }
+)  # pragma: no cover
 # The set of supported observables.
 
 
@@ -107,7 +212,9 @@ class QuimbMPS:
 
     def state_to_array(self, digits: int = 5):
         """Contract the MPS into a dense array."""
-        return self._circuitMPS.to_dense().round(digits)
+        # We need to copy the MPS to avoid modifying the original state
+        qc = copy.deepcopy(self._circuitMPS)
+        return qc.to_dense().round(digits)
 
     def _initial_mps(self) -> qtn.MatrixProductState:
         r"""
@@ -204,8 +311,32 @@ class QuimbMPS:
             )
             self._circuitMPS._psi.__dict__.update(new_state.__dict__)
 
+            # We also add the gate to the list of gates in the circuit.
+
             gate = qtn.circuit.parse_to_gate(op.matrix(), tuple(op.wires))
             self._circuitMPS.gates.append(gate)
+
+        # else:
+
+        #    decom_ops = op.decomposition()
+
+        #    for op in decom_ops:
+
+        #        if len(op.wires) <= 2:
+
+        #            self._circuitMPS.apply_gate(
+        #                op.matrix(), *op.wires, **self._gate_opts
+        #            )
+
+        #        else:
+
+        #            decom_ops = op.decomposition()
+
+        #            for op in decom_ops:
+
+        #                self._circuitMPS.apply_gate(
+        #                    op.matrix(), *op.wires, **self._gate_opts
+        #                )
 
     def measurement(self, measurementprocess: MeasurementProcess) -> TensorLike:
         """Measure the measurement required by the circuit over the MPS.
@@ -268,7 +399,9 @@ class QuimbMPS:
         obs = measurementprocess.obs
 
         obs_mat = obs.matrix()
-        expect_squar_op = self._local_expectation(np.dot(obs_mat, obs_mat), tuple(obs.wires))
+        expect_squar_op = self._local_expectation(
+            np.dot(obs_mat, obs_mat), tuple(obs.wires)
+        )
         expect_op = self._local_expectation(obs_mat, tuple(obs.wires))
 
         return expect_squar_op - np.square(expect_op)
@@ -289,10 +422,10 @@ class QuimbMPS:
         # We need to copy the MPS to avoid modifying the original state
         qc = copy.deepcopy(self._circuitMPS)
 
-        return np.real(
-            qc.local_expectation(
-                matrix,
-                wires,
-                **self._expval_opts,
-            )
+        exp_val = qc.local_expectation(
+            matrix,
+            wires,
+            **self._expval_opts,
         )
+
+        return float(np.real(exp_val))
