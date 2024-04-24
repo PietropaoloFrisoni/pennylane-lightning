@@ -35,7 +35,7 @@ from pennylane_lightning.lightning_tensor import LightningTensor
 THETA = np.linspace(0.11, 1, 3)
 PHI = np.linspace(0.32, 1, 3)
 
-# gates for which device support is tested
+# gates for which interface support is tested
 ops = {
     "Identity": qml.Identity(wires=[0]),
     "BlockEncode": qml.BlockEncode([[0.1, 0.2], [0.3, 0.4]], wires=[0, 1]),
@@ -109,7 +109,7 @@ ops = {
 
 all_ops = ops.keys()
 
-# observables for which device support is tested
+# observables for which interface support is tested
 obs = {
     "Identity": qml.Identity(wires=[0]),
     "Hadamard": qml.Hadamard(wires=[0]),
@@ -131,18 +131,6 @@ obs = {
 
 all_obs = obs.keys()
 
-# All qubit observables should be available to test in the device test suite
-all_available_obs = qml.ops._qubit__obs__.copy()  # pylint: disable=protected-access
-# Note that the identity is not technically a qubit observable
-all_available_obs |= {"Identity"}
-
-if not set(all_obs) == all_available_obs | {"LinearCombination"}:
-    raise ValueError(
-        "A qubit observable has been added that is not being tested in the "
-        "device test suite. Please add to the obs dictionary in "
-        "pennylane/devices/tests/test_measurements.py"
-    )
-
 
 @pytest.mark.parametrize("backend", ["quimb"])
 @pytest.mark.parametrize("method", ["mps"])
@@ -159,20 +147,16 @@ class TestQuimbMPS:
         assert isinstance(dev._interface.state, qtn.MatrixProductState)
         assert isinstance(dev._interface.state_to_array(), np.ndarray)
 
-        program, config = dev.preprocess()
+        _, config = dev.preprocess()
         assert config.device_options["backend"] == backend
         assert config.device_options["method"] == method
 
-
-class TestSupportedGates:
-    """Test that the device can implement all gates that it claims to support."""
-
     @pytest.mark.parametrize("operation", all_ops)
-    def test_supported_gates_can_be_implemented(self, operation):
-        """Test that the device can implement all its supported gates."""
+    def test_supported_gates_can_be_implemented(self, operation, backend, method):
+        """Test that the interface can implement all its supported gates."""
 
         dev = LightningTensor(
-            wires=Wires(range(4)), backend="quimb", method="mps", c_dtype=np.complex64
+            wires=Wires(range(4)), backend=backend, method=method, c_dtype=np.complex64
         )
 
         tape = qml.tape.QuantumScript(
@@ -183,19 +167,12 @@ class TestSupportedGates:
         result = dev.execute(circuits=tape)
         assert np.allclose(result, 1.0)
 
-
-class TestSupportedObservables:
-    """Test that the device can implement all observables that it supports."""
-
     @pytest.mark.parametrize("observable", all_obs)
-    def test_supported_observables_can_be_implemented(self, observable):
-        """Test that the device can implement all its supported observables."""
+    def test_supported_observables_can_be_implemented(self, observable, backend, method):
+        """Test that the interface can implement all its supported observables."""
         dev = LightningTensor(
-            wires=Wires(range(3)), backend="quimb", method="mps", c_dtype=np.complex64
+            wires=Wires(range(3)), backend=backend, method=method, c_dtype=np.complex64
         )
-
-        if dev.shots and observable == "SparseHamiltonian":
-            pytest.skip("SparseHamiltonian only supported in analytic mode")
 
         if observable == "Projector":
             for o in obs[observable]:

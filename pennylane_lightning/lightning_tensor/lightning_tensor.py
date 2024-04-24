@@ -66,7 +66,7 @@ def accepted_methods(method: str) -> bool:
 class LightningTensor(Device):
     """PennyLane Lightning Tensor device.
 
-    A device to perform tensor network operations on a quantum circuit.
+    A device to perform tensor network simulation of a quantum circuit.
 
     Args:
         wires (int): The number of wires to initialize the device with.

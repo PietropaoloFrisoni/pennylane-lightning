@@ -22,12 +22,7 @@ import pennylane as qml
 import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
-from pennylane.measurements import (
-    ExpectationMP,
-    MeasurementProcess,
-    StateMeasurement,
-    VarianceMP,
-)
+from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
 from pennylane.tape import QuantumScript, QuantumTape
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
@@ -41,13 +36,13 @@ PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
 
 def decompose_recursive(op: qml.operation.Operator) -> list:
-    """Decompose a Pennylane operation into a list of operations with at most 2 wires.
+    """Decompose a Pennylane operator into a list of operators with at most 2 wires.
 
     Args:
-        op (Operator): the operation to decompose.
+        op (Operator): the operator to decompose.
 
     Returns:
-        list[Operator]: a list of operations with at most 2 wires.
+        list[Operator]: a list of operators with at most 2 wires.
     """
 
     if len(op.wires) <= 2:
@@ -382,9 +377,7 @@ class QuimbMPS:
         obs = measurementprocess.obs
 
         obs_mat = obs.matrix()
-        expect_squar_op = self._local_expectation(
-            np.dot(obs_mat, obs_mat), tuple(obs.wires)
-        )
+        expect_squar_op = self._local_expectation(np.dot(obs_mat, obs_mat), tuple(obs.wires))
         expect_op = self._local_expectation(obs_mat, tuple(obs.wires))
 
         return expect_squar_op - np.square(expect_op)
