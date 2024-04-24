@@ -357,3 +357,53 @@ class TestTensorVar:
         tol = 1e-5 if dev.c_dtype == np.complex64 else 1e-7
 
         assert np.allclose(calculated_val, reference_val, tol)
+
+
+# Define the parameter values
+THETA = np.linspace(0.11, 1, 3)
+PHI = np.linspace(0.32, 1, 3)
+
+
+@pytest.mark.parametrize("theta, phi", list(zip(THETA, PHI)))
+def test_multi_qubit_gates(theta, phi, dev, tol):
+    """Tests a simple circuit with multi-qubit gates."""
+
+    ops = [
+        qml.PauliX(wires=[0]),
+        qml.RX(theta, wires=[0]),
+        qml.CSWAP(wires=[7, 0, 5]),
+        qml.RX(phi, wires=[1]),
+        qml.CNOT(wires=[3, 4]),
+        qml.DoubleExcitation(phi, wires=[1, 2, 3, 4]),
+        qml.CZ(wires=[4, 5]),
+        qml.Hadamard(wires=[4]),
+        qml.CCZ(wires=[0, 1, 2]),
+        qml.CSWAP(wires=[2, 3, 4]),
+        qml.QFT(wires=[0, 1, 2]),
+        qml.CNOT(wires=[2, 4]),
+        qml.Toffoli(wires=[0, 1, 2]),
+        qml.DoubleExcitation(phi, wires=[0, 1, 3, 4]),
+    ]
+
+    meas = [
+        qml.var(qml.PauliY(wires=[2])),
+        qml.var(qml.Hamiltonian([1, 5, 6], [qml.Z(6), qml.X(0), qml.Hadamard(4)])),
+        qml.var(
+            qml.Hamiltonian(
+                [4, 5, 7],
+                [
+                    qml.Z(6) @ qml.Y(4),
+                    qml.X(0),
+                    qml.Hadamard(4),
+                ],
+            )
+        ),
+    ]
+
+    tape = qml.tape.QuantumScript(ops=ops, measurements=meas)
+
+    reference_val = calculate_reference(tape)
+    dev = LightningTensor(wires=tape.wires, c_dtype=np.complex128)
+    calculated_val = dev.execute(tape)
+
+    assert np.allclose(calculated_val, reference_val)
