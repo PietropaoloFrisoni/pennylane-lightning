@@ -382,7 +382,7 @@ def test_multi_qubit_gates(theta, phi, dev, tol):
                 [4, 5, 7],
                 [
                     qml.Z(6) @ qml.Y(4),
-                    qml.X(0),
+                    qml.X(7),
                     qml.Hadamard(4),
                 ],
             )
