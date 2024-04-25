@@ -22,8 +22,15 @@ import pennylane as qml
 import quimb.tensor as qtn
 from pennylane import numpy as np
 from pennylane.devices import DefaultExecutionConfig, ExecutionConfig
+from pennylane.devices.preprocess import (
+    decompose,
+    validate_device_wires,
+    validate_measurements,
+    validate_observables,
+)
 from pennylane.measurements import ExpectationMP, MeasurementProcess, StateMeasurement, VarianceMP
 from pennylane.tape import QuantumScript, QuantumTape
+from pennylane.transforms.core import TransformProgram
 from pennylane.typing import Result, ResultBatch, TensorLike
 from pennylane.wires import Wires
 
@@ -213,6 +220,11 @@ class QuimbMPS:
         self._circuitMPS = qtn.CircuitMPS(psi0=self._initial_mps())
 
     @property
+    def name_interf(self) -> str:
+        """The name of this interface."""
+        return "QuimbMPS interface"
+
+    @property
     def state(self) -> qtn.MatrixProductState:
         """Return the current MPS handled by the interface."""
         return self._circuitMPS.psi
@@ -243,6 +255,39 @@ class QuimbMPS:
             MatrixProductState: The initial MPS of a circuit.
         """
         return qtn.MPS_computational_state(**self._init_state_ops)
+
+    def preprocess(self):
+        """This function defines the device transform program to be applied for this interface.
+
+        Args:
+            config (Union[ExecutionConfig, Sequence[ExecutionConfig]]): A data structure describing the
+                parameters needed to fully describe the execution.
+
+        Returns:
+            TransformProgram: A transform program that when called returns :class:`~.QuantumTape`'s that the
+            device can natively execute as well as a postprocessing function to be called after execution.
+
+        This interface:
+
+        * Supports any one or two-qubit operations that provide a matrix.
+        * Supports any three or four-qubit operations that provide a decomposition method.
+        * Currently does not support finite shots.
+        """
+
+        program = TransformProgram()
+
+        program.add_transform(validate_measurements, name=self.name_interf)
+        program.add_transform(validate_observables, accepted_observables, name=self.name_interf)
+        program.add_transform(validate_device_wires, self._wires, name=self.name_interf)
+        program.add_transform(
+            decompose,
+            stopping_condition=stopping_condition,
+            skip_initial_state_prep=True,
+            name=self.name_interf,
+        )
+        program.add_transform(qml.transforms.broadcast_expand)
+
+        return program
 
     # pylint: disable=unused-argument
     def execute(

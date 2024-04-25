@@ -26,23 +26,15 @@ import numpy as np
 import pennylane as qml
 from pennylane.devices import DefaultExecutionConfig, Device, ExecutionConfig
 from pennylane.devices.modifiers import simulator_tracking, single_tape_support
-from pennylane.devices.preprocess import (
-    decompose,
-    validate_device_wires,
-    validate_measurements,
-    validate_observables,
-)
 from pennylane.tape import QuantumTape
-from pennylane.transforms.core import TransformProgram
 from pennylane.typing import Result, ResultBatch
-
-from .quimb._mps import QuimbMPS, accepted_observables, stopping_condition
 
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
 QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
+from .quimb._mps import QuimbMPS
 
 _backends = frozenset({"quimb"})
 # The set of supported backends.
@@ -220,27 +212,11 @@ class LightningTensor(Device):
 
         This device:
 
-        * Supports any one or two-qubit operations that provide a matrix.
-        * Supports any three or four-qubit operations that provide a decomposition method.
         * Currently does not support finite shots.
-
         """
 
         config = self._setup_execution_config(execution_config)
-
-        program = TransformProgram()
-
-        program.add_transform(validate_measurements, name=self.name)
-        program.add_transform(validate_observables, accepted_observables, name=self.name)
-        program.add_transform(validate_device_wires, self.wires, name=self.name)
-        program.add_transform(
-            decompose,
-            stopping_condition=stopping_condition,
-            skip_initial_state_prep=True,
-            name=self.name,
-        )
-        program.add_transform(qml.transforms.broadcast_expand)
-
+        program = self._interface.preprocess()
         return program, config
 
     def execute(
