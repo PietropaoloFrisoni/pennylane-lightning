@@ -15,7 +15,6 @@
 Unit tests for the ``quimb`` interface.
 """
 
-<<<<<<< HEAD
 import itertools
 import math
 
@@ -30,8 +29,11 @@ from scipy.sparse import csr_matrix
 
 from pennylane_lightning.lightning_tensor import LightningTensor
 
-# if LightningDevice._CPP_BINARY_AVAILABLE:
-#    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
+if not LightningDevice._new_API:
+    pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
+
+if LightningDevice._CPP_BINARY_AVAILABLE:
+    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
 
 THETA = np.linspace(0.11, 1, 3)
 PHI = np.linspace(0.32, 1, 3)
@@ -131,22 +133,6 @@ obs = {
 }
 
 all_obs = obs.keys()
-=======
-
-import numpy as np
-import pytest
-import quimb.tensor as qtn
-from conftest import LightningDevice  # tested device
-from pennylane.wires import Wires
-
-from pennylane_lightning.lightning_tensor import LightningTensor
-
-if not LightningDevice._new_API:
-    pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
-
-if LightningDevice._CPP_BINARY_AVAILABLE:
-    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
->>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
 
 @pytest.mark.parametrize("backend", ["quimb"])
@@ -156,18 +142,28 @@ class TestQuimbMPS:
 
     @pytest.mark.parametrize("num_wires", [None, 4])
     @pytest.mark.parametrize("c_dtype", [np.complex64, np.complex128])
-    def test_device_init(self, num_wires, c_dtype, backend, method):
-        """Test the class initialization and returned properties."""
+    @pytest.mark.parametrize("max_bond_dim", [None, 10])
+    @pytest.mark.parametrize("cutoff", [1e-16, 1e-12])
+    @pytest.mark.parametrize("contract", ["auto-mps", "nonlocal"])
+    def test_device_init(self, num_wires, c_dtype, backend, method, max_bond_dim, cutoff, contract):
+        """Test the class initialization with different arguments and returned properties."""
+
+        kwargs = {"max_bond_dim": max_bond_dim, "cutoff": cutoff, "contract": contract}
 
         wires = Wires(range(num_wires)) if num_wires else None
-        dev = LightningTensor(wires=wires, backend=backend, method=method, c_dtype=c_dtype)
+        dev = LightningTensor(
+            wires=wires, backend=backend, method=method, c_dtype=c_dtype, **kwargs
+        )
         assert isinstance(dev._interface.state, qtn.MatrixProductState)
         assert isinstance(dev._interface.state_to_array(), np.ndarray)
 
         _, config = dev.preprocess()
+        assert config.device_options["c_dtype"] == c_dtype
         assert config.device_options["backend"] == backend
         assert config.device_options["method"] == method
-<<<<<<< HEAD
+        assert config.device_options["max_bond_dim"] == max_bond_dim
+        assert config.device_options["cutoff"] == cutoff
+        assert config.device_options["contract"] == contract
 
     @pytest.mark.parametrize("operation", all_ops)
     def test_supported_gates_can_be_implemented(self, operation, backend, method):
@@ -209,5 +205,32 @@ class TestQuimbMPS:
             )
             result = dev.execute(circuits=tape)
             assert isinstance(result, (float, np.ndarray))
-=======
->>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
+
+    def test_not_implemented_meas(self, backend, method):
+        """Tests that support only exists for `qml.expval` and `qml.var` so far."""
+
+        ops = [qml.Identity(0)]
+        measurements = [qml.probs(qml.PauliZ(0))]
+        tape = qml.tape.QuantumScript(ops, measurements)
+
+        dev = LightningTensor(
+            wires=tape.wires, backend=backend, method=method, c_dtype=np.complex64
+        )
+
+        with pytest.raises(NotImplementedError):
+            dev.execute(tape)
+
+    def test_not_implemented_shots(self, backend, method):
+        """Tests that this interface does not support measurements with finite shots."""
+
+        ops = [qml.Identity(0)]
+        measurements = [qml.expval(qml.PauliZ(0))]
+        tape = qml.tape.QuantumScript(ops, measurements)
+        tape._shots = 5
+
+        dev = LightningTensor(
+            wires=tape.wires, backend=backend, method=method, c_dtype=np.complex64
+        )
+
+        with pytest.raises(NotImplementedError):
+            dev.execute(tape)

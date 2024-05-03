@@ -12,12 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Tests for process and execute (variance calculation).
+Tests for the variance calculation on the LightningTensor device.
 """
 import numpy as np
 import pennylane as qml
-
-# pylint: disable=too-many-arguments, redefined-outer-name
 import pytest
 from conftest import PHI, THETA, VARPHI, LightningDevice
 from pennylane.tape import QuantumScript
@@ -25,8 +23,8 @@ from pennylane.tape import QuantumScript
 if not LightningDevice._new_API:
     pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
 
-# if not LightningDevice._CPP_BINARY_AVAILABLE:  # pylint: disable=protected-access
-#    pytest.skip("No binary module found. Skipping.", allow_module_level=True)
+if LightningDevice._CPP_BINARY_AVAILABLE:
+    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
 
 
 from pennylane_lightning.lightning_tensor import LightningTensor
