@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+<<<<<<< HEAD
 
 """
 This module contains the LightningTensor class that inherits from the new device interface.
@@ -18,6 +19,12 @@ It is a device to perform tensor network operations on a quantum circuit.
 """
 
 
+=======
+"""
+This module contains the LightningTensor class that inherits from the new device interface.
+It is a device to perform tensor network simulation of a quantum circuit. 
+"""
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 from dataclasses import replace
 from numbers import Number
 from typing import Callable, Optional, Sequence, Tuple, Union
@@ -27,14 +34,25 @@ import pennylane as qml
 from pennylane.devices import DefaultExecutionConfig, Device, ExecutionConfig
 from pennylane.devices.modifiers import simulator_tracking, single_tape_support
 from pennylane.tape import QuantumTape
+<<<<<<< HEAD
 from pennylane.typing import Result, ResultBatch
 
+=======
+from pennylane.transforms.core import TransformProgram
+from pennylane.typing import Result, ResultBatch
+
+from .backends.quimb._mps import QuimbMPS
+
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 Result_or_ResultBatch = Union[Result, ResultBatch]
 QuantumTapeBatch = Sequence[QuantumTape]
 QuantumTape_or_Batch = Union[QuantumTape, QuantumTapeBatch]
 PostprocessingFn = Callable[[ResultBatch], Result_or_ResultBatch]
 
+<<<<<<< HEAD
 from .quimb._mps import QuimbMPS
+=======
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
 _backends = frozenset({"quimb"})
 # The set of supported backends.
@@ -58,7 +76,11 @@ def accepted_methods(method: str) -> bool:
 class LightningTensor(Device):
     """PennyLane Lightning Tensor device.
 
+<<<<<<< HEAD
     A device to perform tensor network simulation of a quantum circuit.
+=======
+    A device to perform tensor network operations on a quantum circuit.
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
     Args:
         wires (int): The number of wires to initialize the device with.
@@ -75,24 +97,33 @@ class LightningTensor(Device):
             ``max_bond_dim`` (int): Maximum bond dimension for the MPS simulator.
                 It corresponds to the number of Schmidt coefficients retained at the end of the SVD algorithm when applying gates. Default is ``None``.
             ``cutoff`` (float): Truncation threshold for the Schmidt coefficients in a MPS simulator. Default is ``1e-16``.
+<<<<<<< HEAD
             ``return_tn`` (bool): Whether to return the tensor network object along with the results of circuit execution. Default is ``False``.
             ``rehearse`` (bool): Whether to rehearse the circuit. If ``True``, generate and cache the simplified tensor network and contraction path
                 without performing the contraction. Default is ``False``.
+=======
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
     """
 
     # pylint: disable=too-many-instance-attributes
 
     # So far we just consider the options for MPS simulator
     _device_options = (
+<<<<<<< HEAD
         "apply_reverse_lightcone",
+=======
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
         "backend",
         "c_dtype",
         "cutoff",
         "method",
         "max_bond_dim",
+<<<<<<< HEAD
         "measure_algorithm",
         "return_tn",
         "rehearse",
+=======
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
     )
 
     _new_API = True
@@ -116,7 +147,11 @@ class LightningTensor(Device):
             raise ValueError(f"Unsupported method: {method}")
 
         if shots is not None:
+<<<<<<< HEAD
             raise ValueError("LightningTensor does not support the `shots` parameter.")
+=======
+            raise ValueError("LightningTensor does not support finite shots.")
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
         super().__init__(wires=wires, shots=shots)
 
@@ -127,6 +162,7 @@ class LightningTensor(Device):
 
         # options for MPS
         self._max_bond_dim = kwargs.get("max_bond_dim", None)
+<<<<<<< HEAD
         self._cutoff = kwargs.get("cutoff", 1e-16)
         self._measure_algorithm = kwargs.get("measure_algorithm", None)
 
@@ -134,6 +170,9 @@ class LightningTensor(Device):
         self._return_tn = kwargs.get("return_tn", False)
         self._rehearse = kwargs.get("rehearse", False)
         self._apply_reverse_lightcone = kwargs.get("apply_reverse_lightcone", None)
+=======
+        self._cutoff = kwargs.get("cutoff", np.finfo(self._c_dtype).eps)
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
         self._interface = None
         interface_opts = self._setup_execution_config().device_options
@@ -145,6 +184,14 @@ class LightningTensor(Device):
                 self._c_dtype,
             )
 
+<<<<<<< HEAD
+=======
+        else:
+            raise ValueError(
+                f"Unsupported backend: {self.backend} or method: {self.method}"
+            )  # pragma: no cover
+
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
         for arg in kwargs:
             if arg not in self._device_options:
                 raise TypeError(
@@ -212,11 +259,23 @@ class LightningTensor(Device):
 
         This device:
 
+<<<<<<< HEAD
+=======
+        * Supports any qubit operations that provide a matrix.
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
         * Currently does not support finite shots.
         """
 
         config = self._setup_execution_config(execution_config)
+<<<<<<< HEAD
         program = self._interface.preprocess()
+=======
+
+        program = TransformProgram()
+
+        # more in the next PR
+
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
         return program, config
 
     def execute(
@@ -233,9 +292,16 @@ class LightningTensor(Device):
         Returns:
             TensorLike, tuple[TensorLike], tuple[tuple[TensorLike]]: A numeric result of the computation.
         """
+<<<<<<< HEAD
 
         return self._interface.execute(circuits, execution_config)
 
+=======
+        # comment is removed in the next PR
+        # return self._interface.execute(circuits, execution_config)
+
+    # pylint: disable=unused-argument
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
     def supports_derivatives(
         self,
         execution_config: Optional[ExecutionConfig] = None,
@@ -251,8 +317,12 @@ class LightningTensor(Device):
             Bool: Whether or not a derivative can be calculated provided the given information.
 
         """
+<<<<<<< HEAD
         # TODO: implement during next quarter
         return False  # pragma: no cover
+=======
+        return False
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
     def compute_derivatives(
         self,
@@ -270,7 +340,11 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of derivatives has yet to be implemented for the lightning.tensor device."
+<<<<<<< HEAD
         )  # pragma: no cover
+=======
+        )
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
     def execute_and_compute_derivatives(
         self,
@@ -288,8 +362,14 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of derivatives has yet to be implemented for the lightning.tensor device."
+<<<<<<< HEAD
         )  # pragma: no cover
 
+=======
+        )
+
+    # pylint: disable=unused-argument
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
     def supports_vjp(
         self,
         execution_config: Optional[ExecutionConfig] = None,
@@ -305,7 +385,11 @@ class LightningTensor(Device):
             Bool: Whether or not a derivative can be calculated provided the given information.
         """
         # TODO: implement during next quarter
+<<<<<<< HEAD
         return False  # pragma: no cover
+=======
+        return False
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
     def compute_vjp(
         self,
@@ -327,7 +411,11 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of vector jacobian product has yet to be implemented for the lightning.tensor device."
+<<<<<<< HEAD
         )  # pragma: no cover
+=======
+        )
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
     def execute_and_compute_vjp(
         self,
@@ -348,4 +436,8 @@ class LightningTensor(Device):
         """
         raise NotImplementedError(
             "The computation of vector jacobian product has yet to be implemented for the lightning.tensor device."
+<<<<<<< HEAD
         )  # pragma: no cover
+=======
+        )
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9

@@ -24,8 +24,16 @@ from pennylane.wires import Wires
 
 from pennylane_lightning.lightning_tensor import LightningTensor
 
+<<<<<<< HEAD
 # if LightningDevice._CPP_BINARY_AVAILABLE:
 #    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
+=======
+if not LightningDevice._new_API:
+    pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
+
+if LightningDevice._CPP_BINARY_AVAILABLE:
+    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
 
 @pytest.mark.parametrize("num_wires", [None, 4])
@@ -68,7 +76,11 @@ def test_invalid_keyword_arg():
 
 def test_invalid_shots():
     """Test that an error is raised if finite number of shots are requestd."""
+<<<<<<< HEAD
     with pytest.raises(ValueError, match="LightningTensor does not support the `shots` parameter."):
+=======
+    with pytest.raises(ValueError, match="LightningTensor does not support finite shots."):
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
         LightningTensor(shots=5)
 
 

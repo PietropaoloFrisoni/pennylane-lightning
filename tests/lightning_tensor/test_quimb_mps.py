@@ -15,6 +15,7 @@
 Unit tests for the ``quimb`` interface.
 """
 
+<<<<<<< HEAD
 import itertools
 import math
 
@@ -130,6 +131,22 @@ obs = {
 }
 
 all_obs = obs.keys()
+=======
+
+import numpy as np
+import pytest
+import quimb.tensor as qtn
+from conftest import LightningDevice  # tested device
+from pennylane.wires import Wires
+
+from pennylane_lightning.lightning_tensor import LightningTensor
+
+if not LightningDevice._new_API:
+    pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
+
+if LightningDevice._CPP_BINARY_AVAILABLE:
+    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
 
 
 @pytest.mark.parametrize("backend", ["quimb"])
@@ -150,6 +167,7 @@ class TestQuimbMPS:
         _, config = dev.preprocess()
         assert config.device_options["backend"] == backend
         assert config.device_options["method"] == method
+<<<<<<< HEAD
 
     @pytest.mark.parametrize("operation", all_ops)
     def test_supported_gates_can_be_implemented(self, operation, backend, method):
@@ -191,3 +209,5 @@ class TestQuimbMPS:
             )
             result = dev.execute(circuits=tape)
             assert isinstance(result, (float, np.ndarray))
+=======
+>>>>>>> fdb47f072c0f1eff01ecbebfb17e21fb9b39f9a9
