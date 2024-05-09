@@ -24,15 +24,15 @@ from pennylane.devices import DefaultQubit
 if not LightningDevice._new_API:
     pytest.skip("Exclusive tests for new API. Skipping.", allow_module_level=True)
 
-# if LightningDevice._CPP_BINARY_AVAILABLE:
-#    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
+if LightningDevice._CPP_BINARY_AVAILABLE:
+    pytest.skip("Device doesn't have C++ support yet.", allow_module_level=True)
 
 from pennylane_lightning.lightning_tensor import LightningTensor
 
 
 @pytest.fixture(params=[np.complex64, np.complex128])
 def dev(request):
-    return LightningTensor(wires=3, c_dtype=request.param, contract="auto-mps")
+    return LightningTensor(wires=3, c_dtype=request.param)
 
 
 def calculate_reference(tape):
